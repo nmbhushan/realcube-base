@@ -122,6 +122,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
     // Valid but irrelevant events must be acknowledged rather than poison the PIMS consumer.
     if (!event.eventType.startsWith('platform.project_access.')) return null;
     const payload = event.payload;
+    if (typeof payload.projectCode !== 'string') throw new Error('Project access event is missing projectCode');
     if (payload.projectCode !== 'PIMS') return null;
 
     if (
