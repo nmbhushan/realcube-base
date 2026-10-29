@@ -22,7 +22,7 @@ Enterprise Platform and shared infrastructure foundation for the RealCube busine
 - OIDC JWT validation using a configured issuer, audience and JWKS endpoint. Protected admin routes fail closed when OIDC is not configured.
 - Transactional audit/outbox records for tenant creation, invitations, memberships, project entitlements, Platform administrator changes and project-role changes.
 - Docker Compose for the API, frontend, PostgreSQL and Redis-backed server sessions.
-- Structured API request telemetry, database readiness probing and server-side OIDC/session security events.
+- Structured API request telemetry, database readiness probing, nonce-based CSP and Redis-backed web rate limits.
 - Terraform/Helm starter files and security/operations documentation.
 
 ## Local development

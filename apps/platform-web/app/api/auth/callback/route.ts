@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { authorizationCodeGrant } from 'openid-client';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  WEB_SESSION_TTL_SECONDS, clearCookieValue, consumeOidcTransaction, getOidcConfiguration,
+  WEB_SESSION_TTL_SECONDS, checkRequestRateLimit, clearCookieValue, consumeOidcTransaction, getOidcConfiguration,
   getOidcRedirectUri, getPlatformWebBaseUrl, oidcTransactionCookieName, parseCookie,
   safeStringEqual, sessionCookieName, sessionCookieOptions, storeWebSession, logWebSecurityEvent,
 } from '../../../../lib/server-auth';
@@ -20,6 +20,22 @@ function failureRedirect(reason: string = 'callback_failed') {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    const decision = await checkRequestRateLimit(request, 'oidc-callback', 20, 600);
+    if (!decision.allowed) {
+      logWebSecurityEvent('oidc.callback.rate_limited', { reason: 'client_window_exceeded', status: 429 });
+      return NextResponse.json(
+        { error: 'Too many authentication callbacks. Please try again later.' },
+        { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfterSeconds) } },
+      );
+    }
+  } catch {
+    logWebSecurityEvent('oidc.callback.rate_limit_unavailable', { reason: 'redis_unavailable', status: 503 });
+    return NextResponse.json({ error: 'Authentication service temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
+  }
+
   const incoming = new URL(request.url);
   const state = incoming.searchParams.get('state') || '';
   const stateCookie = parseCookie(request, oidcTransactionCookieName);

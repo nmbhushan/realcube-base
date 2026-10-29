@@ -4,6 +4,78 @@ import * as oidc from 'openid-client';
 
 export const OIDC_TRANSACTION_TTL_SECONDS = 300;
 export const WEB_SESSION_TTL_SECONDS = 8 * 60 * 60;
+export type RateLimitDecision = {
+  allowed: boolean;
+  limit: number;
+  remaining: number;
+  retryAfterSeconds: number;
+};
+
+const RATE_LIMIT_SCRIPT = `
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+  redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
+end
+local ttl = redis.call('TTL', KEYS[1])
+return { count, ttl }
+`;
+
+export function getTrustedRateLimitSubject(request: Request): string {
+  const configured = process.env.RATE_LIMIT_CLIENT_IP_HEADER ||
+    (process.env.NODE_ENV === 'production' ? '' : 'x-real-ip');
+  if (!configured || !/^[a-z0-9-]{1,64}$/i.test(configured)) {
+    throw new Error('RATE_LIMIT_CLIENT_IP_HEADER must be configured to a trusted ingress header');
+  }
+  const headerName = configured.toLowerCase();
+  const raw = request.headers.get(headerName);
+  if (!raw) return 'unknown-client';
+  let candidate = raw.trim();
+  // ALB appends the observed source address to X-Forwarded-For; use the last entry.
+  if (headerName === 'x-forwarded-for') {
+    candidate = candidate.split(',').map(part => part.trim()).filter(Boolean).at(-1) ?? '';
+  }
+  if (!candidate || candidate.length > 128 || /[\r\n\u0000-\u001f]/.test(candidate)) return 'unknown-client';
+  return candidate;
+}
+
+export async function consumeRateLimit(
+  bucket: string,
+  subject: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<RateLimitDecision> {
+  if (!/^[a-z][a-z0-9_-]{1,48}$/.test(bucket)) throw new Error('Invalid rate-limit bucket');
+  if (!subject || subject.length > 512) throw new Error('Invalid rate-limit subject');
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100000) throw new Error('Invalid rate limit');
+  if (!Number.isInteger(windowSeconds) || windowSeconds < 1 || windowSeconds > 86400) {
+    throw new Error('Invalid rate-limit window');
+  }
+  const redis = await getRedisClient();
+  const subjectHash = createHash('sha256').update(subject).digest('hex');
+  const key = 'realcube:platform:rate-limit:' + bucket + ':' + subjectHash;
+  const raw = await redis.eval(RATE_LIMIT_SCRIPT, { keys: [key], arguments: [String(windowSeconds)] });
+  if (!Array.isArray(raw) || raw.length < 2) throw new Error('Unexpected Redis rate-limit result');
+  const count = Number(raw[0]);
+  const ttl = Number(raw[1]);
+  if (!Number.isFinite(count) || count < 1 || !Number.isFinite(ttl)) throw new Error('Invalid Redis rate-limit result');
+  return {
+    allowed: count <= limit,
+    limit,
+    remaining: Math.max(0, limit - count),
+    retryAfterSeconds: count <= limit ? 0 : Math.max(1, ttl),
+  };
+}
+
+export async function checkRequestRateLimit(
+  request: Request,
+  bucket: string,
+  limit: number,
+  windowSeconds: number,
+  subjectOverride?: string,
+): Promise<RateLimitDecision> {
+  return consumeRateLimit(bucket, subjectOverride ?? getTrustedRateLimitSubject(request), limit, windowSeconds);
+}
+
 
 export function logWebSecurityEvent(
   event: string,

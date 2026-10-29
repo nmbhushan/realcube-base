@@ -20,3 +20,10 @@ In centralized logging/monitoring, alert on sustained increases in HTTP 401/403/
 ## Rollout requirements
 
 Configure log shipping, access controls, retention, dashboarding and alert thresholds per environment. Confirm load balancer ingress logs redact callback query parameters because authorization codes and state may appear in the callback URL. Test liveness/readiness behavior under database failure. Production browser security still needs a reviewed nonce-based Content Security Policy, threat model and penetration test.
+
+
+## Web security events and rate-limit signals
+
+The web application emits static-code JSON events for OIDC login start/completion/rejection, session refresh/expiry, BFF unauthenticated requests, upstream 401/502 responses, and rate-limit/Redis failures. Rate limits use Redis atomic fixed windows with hashed subjects; raw session IDs and client IP values must not be included in event payloads.
+
+Dashboards and alerts should track HTTP 429/503 rates, repeated OIDC callback failures, Redis throttling/session outages and sustained 5xx/502 rates. Use the browser-authentication guide to configure the trusted ingress client-IP header before enabling web rate limits in production.
