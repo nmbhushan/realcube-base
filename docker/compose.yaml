@@ -79,5 +79,46 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+  pims-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PIMS_POSTGRES_ADMIN_PASSWORD:?Set PIMS_POSTGRES_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: pims_db
+      PIMS_APP_DB_PASSWORD: ${PIMS_APP_DB_PASSWORD:?Set PIMS_APP_DB_PASSWORD in .env}
+    ports:
+      - "127.0.0.1:${PIMS_DB_PORT:-5433}:5432"
+    volumes:
+      - pims_pgdata:/var/lib/postgresql/data
+      - ../database/pims/000-create-app-role.sh:/docker-entrypoint-initdb.d/000-create-app-role.sh:ro
+      - ../database/pims/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pims_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+  pims-api:
+    build:
+      context: ..
+      dockerfile: apps/pims-api/Dockerfile
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+      PIMS_DATABASE_URL: postgresql://pims_app:${PIMS_APP_DB_PASSWORD:?Set PIMS_APP_DB_PASSWORD in .env}@pims-postgres:5432/pims_db
+      PIMS_DATABASE_SSL: ${PIMS_DATABASE_SSL:-false}
+      OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
+      OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
+      PIMS_OIDC_AUDIENCE: ${PIMS_OIDC_AUDIENCE:-pims-api}
+      PIMS_MAX_TOKEN_AGE_SECONDS: ${PIMS_MAX_TOKEN_AGE_SECONDS:-300}
+      PIMS_PERMISSIONS_CLAIM: ${PIMS_PERMISSIONS_CLAIM:-permissions}
+    ports:
+      - "127.0.0.1:${PIMS_API_PORT:-3002}:3002"
+    depends_on:
+      pims-postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   platform_pgdata:
+  pims_pgdata:
