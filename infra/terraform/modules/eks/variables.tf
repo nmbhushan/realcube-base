@@ -109,6 +109,28 @@ variable "access_events_queue_arn" {
   }
 }
 
+variable "enable_vpc_cni_pod_identity" {
+  description = "Create a dedicated EKS Pod Identity role and association for the kube-system/aws-node VPC CNI service account."
+  type        = bool
+  default     = false
+}
+
+variable "remove_node_cni_policy" {
+  description = "Detach AmazonEKS_CNI_Policy from the node role after the separate VPC CNI Pod Identity association has been validated in staging."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.remove_node_cni_policy || (var.enable_vpc_cni_pod_identity && var.approve_vpc_cni_policy_cutover)
+    error_message = "Removing the node CNI policy requires enable_vpc_cni_pod_identity=true and approve_vpc_cni_policy_cutover=true after successful staging verification."
+  }
+}
+
+variable "approve_vpc_cni_policy_cutover" {
+  description = "Explicit approval gate required to remove the node-role CNI policy after staging verification."
+  type        = bool
+  default     = false
+}
 variable "worker_namespace" {
   description = "Kubernetes namespace for the outbox worker service account."
   type        = string
