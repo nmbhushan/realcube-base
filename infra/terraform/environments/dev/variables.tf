@@ -153,3 +153,37 @@ variable "eks_approve_vpc_cni_policy_cutover" {
   description = "Explicit approval gate for the second-phase CNI IAM cutover after staging verification."
   default     = false
 }
+
+
+variable "eks_enable_load_balancer_controller" {
+  type        = bool
+  description = "Create the IAM role and Pod Identity association for the AWS Load Balancer Controller; install the pinned Helm chart separately from a private operator path."
+  default     = false
+
+  validation {
+    condition     = !var.eks_enable_load_balancer_controller || var.enable_eks
+    error_message = "Enable EKS before enabling the AWS Load Balancer Controller identity."
+  }
+}
+
+variable "eks_enable_platform_waf_web_acl" {
+  type        = bool
+  description = "Create a regional WAFv2 Web ACL with AWS managed rule groups and per-IP rate limiting."
+  default     = false
+
+  validation {
+    condition     = !var.eks_enable_platform_waf_web_acl || var.enable_eks
+    error_message = "Enable EKS before enabling the Platform WAF Web ACL."
+  }
+}
+
+variable "eks_waf_rate_limit" {
+  type        = number
+  description = "Per-IP request threshold in a five-minute window before AWS WAF blocks requests."
+  default     = 2000
+
+  validation {
+    condition     = var.eks_waf_rate_limit >= 10 && var.eks_waf_rate_limit <= 2000000000 && floor(var.eks_waf_rate_limit) == var.eks_waf_rate_limit
+    error_message = "eks_waf_rate_limit must be an integer between 10 and 2,000,000,000."
+  }
+}
