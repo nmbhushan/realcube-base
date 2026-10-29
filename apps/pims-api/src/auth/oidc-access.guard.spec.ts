@@ -38,7 +38,7 @@ describe('OidcAccessGuard', () => {
     process.env.OIDC_ISSUER_URL = 'https://issuer.example.test/';
     process.env.OIDC_JWKS_URL = 'https://issuer.example.test/.well-known/jwks.json';
     process.env.PIMS_OIDC_AUDIENCE = 'pims-api';
-    await expect(new OidcAccessGuard().canActivate(makeContext()))
+    await expect(new OidcAccessGuard({ getCurrentEntitlement: jest.fn() } as any).canActivate(makeContext()))
       .rejects.toBeInstanceOf(UnauthorizedException);
   });
 
@@ -47,7 +47,7 @@ describe('OidcAccessGuard', () => {
     process.env.OIDC_JWKS_URL = 'https://issuer.example.test/.well-known/jwks.json';
     process.env.PIMS_OIDC_AUDIENCE = 'pims-api';
     process.env.PIMS_MAX_TOKEN_AGE_SECONDS = '3600';
-    await expect(new OidcAccessGuard().canActivate(makeContext('Bearer token')))
+    await expect(new OidcAccessGuard({ getCurrentEntitlement: jest.fn() } as any).canActivate(makeContext('Bearer token')))
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 });
