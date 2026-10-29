@@ -148,3 +148,27 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+
+variable "enable_load_balancer_controller" {
+  description = "Create the IAM policy, role and Pod Identity association for the AWS Load Balancer Controller."
+  type        = bool
+  default     = false
+}
+
+variable "enable_platform_waf_web_acl" {
+  description = "Create a regional AWS WAFv2 Web ACL for the Platform ALB."
+  type        = bool
+  default     = false
+}
+
+variable "waf_rate_limit" {
+  description = "Per-IP request threshold in a five-minute window before AWS WAF blocks requests."
+  type        = number
+  default     = 2000
+
+  validation {
+    condition     = var.waf_rate_limit >= 10 && var.waf_rate_limit <= 2000000000 && floor(var.waf_rate_limit) == var.waf_rate_limit
+    error_message = "waf_rate_limit must be an integer between 10 and 2,000,000,000."
+  }
+}
