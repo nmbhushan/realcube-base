@@ -28,6 +28,7 @@ CREATE TABLE pims_access_event_consumer_state (
   id smallint PRIMARY KEY CHECK (id = 1),
   last_success_at timestamptz,
   last_event_id uuid,
+  healthy boolean NOT NULL DEFAULT false,
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 INSERT INTO pims_access_event_consumer_state (id)
