@@ -1,0 +1,8 @@
+project_name                  = "realcube-workspace-dev"
+aws_region                    = "ap-south-1"
+vpc_cidr                      = "10.40.0.0/16"
+availability_zone_count       = 2
+enable_nat_gateway            = true
+single_nat_gateway            = true
+tagged_image_retention_count  = 50
+untagged_image_retention_days = 14

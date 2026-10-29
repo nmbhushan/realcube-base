@@ -9,3 +9,10 @@ coverage/
 *.tfstate
 *.tfstate.*
 .DS_Store
+
+# Terraform local plans and crash diagnostics
+*.tfvars
+!*.tfvars.example
+*.tfplan
+crash.log
+crash.*.log
