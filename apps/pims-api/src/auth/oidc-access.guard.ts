@@ -30,7 +30,7 @@ export class OidcAccessGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<PimsAuthenticatedRequest>();
-    const match = request.headers.authorization?.match(/^Bearer\\s+(.+)$/i);
+    const match = request.headers.authorization?.match(/^Bearer\s+(.+)$/i);
     if (!match) throw new UnauthorizedException('Bearer access token required');
 
     let payload: JWTPayload;
