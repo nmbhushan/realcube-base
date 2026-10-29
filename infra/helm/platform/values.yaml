@@ -1,4 +1,6 @@
 namespace: enterprise-platform
+awsRegion: ap-south-1
+
 frontend:
   image:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-frontend
@@ -8,18 +10,38 @@ frontend:
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
+
 api:
   image:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
   port: 3001
+  envFromSecretName: enterprise-platform-api-env
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits: { cpu: 1000m, memory: 1Gi }
+
 serviceAccount:
-  name: enterprise-platform
+  name: enterprise-platform-api
   annotations: {}
+
+worker:
+  enabled: false
+  image:
+    repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
+    tag: "REPLACE_WITH_IMMUTABLE_TAG"
+  replicas: 1
+  envFromSecretName: enterprise-platform-worker-env
+  queueUrl: ""
+  pollIntervalMs: 5000
+  serviceAccountName: enterprise-platform-outbox-worker
+  serviceAccountAnnotations: {}
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+# Configure ingress only after TLS, WAF, network and security review.
 ingress:
   enabled: false
   className: alb

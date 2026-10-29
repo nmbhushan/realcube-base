@@ -10,8 +10,21 @@ kind: ServiceAccount
 metadata:
   name: {{ .Values.serviceAccount.name }}
   namespace: {{ .Values.namespace }}
+  {{- with .Values.serviceAccount.annotations }}
   annotations:
-    {{- toYaml .Values.serviceAccount.annotations | nindent 4 }}
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.worker.serviceAccountName }}
+  namespace: {{ .Values.namespace }}
+  {{- with .Values.worker.serviceAccountAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
 automountServiceAccountToken: false
 ---
 apiVersion: apps/v1
@@ -38,10 +51,18 @@ spec:
           env:
             - { name: NODE_ENV, value: production }
             - { name: PORT, value: "{{ .Values.api.port }}" }
+            - { name: OUTBOX_PUBLISHER_ENABLED, value: "false" }
+          {{- with .Values.api.envFromSecretName }}
+          envFrom:
+            - secretRef:
+                name: {{ . | quote }}
+          {{- end }}
           readinessProbe:
             httpGet: { path: /api/v1/health/ready, port: http }
+            initialDelaySeconds: 5
           livenessProbe:
             httpGet: { path: /api/v1/health, port: http }
+            initialDelaySeconds: 10
           resources:
             {{- toYaml .Values.api.resources | nindent 12 }}
           securityContext:
@@ -84,12 +105,43 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: { drop: ["ALL"] }
+{{- if .Values.worker.enabled }}
 ---
-apiVersion: v1
-kind: Service
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  name: platform-frontend
+  name: platform-outbox-worker
   namespace: {{ .Values.namespace }}
 spec:
-  selector: { app: platform-frontend }
-  ports: [{ name: http, port: {{ .Values.frontend.port }}, targetPort: http }]
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels: { app: platform-outbox-worker }
+  template:
+    metadata:
+      labels: { app: platform-outbox-worker }
+    spec:
+      serviceAccountName: {{ .Values.worker.serviceAccountName }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: outbox-worker
+          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          command: ["node", "dist/outbox/worker.main.js"]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: OUTBOX_PUBLISHER_ENABLED, value: "true" }
+            - { name: ACCESS_EVENTS_QUEUE_URL, value: {{ .Values.worker.queueUrl | quote }} }
+            - { name: OUTBOX_POLL_INTERVAL_MS, value: "{{ .Values.worker.pollIntervalMs }}" }
+            - { name: AWS_REGION, value: {{ .Values.awsRegion | quote }} }
+          {{- with .Values.worker.envFromSecretName }}
+          envFrom:
+            - secretRef:
+                name: {{ . | quote }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+{{- end }}

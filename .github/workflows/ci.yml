@@ -2,11 +2,10 @@ name: Starter CI
 on:
   pull_request:
   push:
-    branches: [main]
 permissions:
   contents: read
 jobs:
-  build-api:
+  build-and-test-api:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -16,8 +15,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm install --no-audit --no-fund
       - run: npm run build
+      - run: npm test
   build-web:
     runs-on: ubuntu-latest
     defaults:
@@ -28,5 +28,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
+      - run: npm install --no-audit --no-fund
       - run: npm run build
