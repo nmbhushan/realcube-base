@@ -66,7 +66,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
         MaxNumberOfMessages: 10,
         WaitTimeSeconds: 10,
         VisibilityTimeout: 45,
-        AttributeNames: ['ApproximateReceiveCount'],
+        MessageSystemAttributeNames: ['ApproximateReceiveCount'],
       }));
       let allMessagesProcessed = true;
       for (const message of response.Messages ?? []) {
