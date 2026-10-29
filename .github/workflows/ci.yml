@@ -59,6 +59,22 @@ jobs:
           version: v3.17.3
       - name: Lint Helm chart
         run: helm lint infra/helm/platform
+      - name: Render pinned AWS Load Balancer Controller chart
+        shell: bash
+        run: |
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update eks
+          helm template aws-load-balancer-controller eks/aws-load-balancer-controller \
+            --version 3.6.2 \
+            --namespace kube-system \
+            --values infra/helm/aws-load-balancer-controller-values.yaml \
+            --set clusterName=realcube-ci \
+            --set region=ap-south-1 \
+            --set vpcId=vpc-0123456789abcdef0 \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller > /tmp/lbc-rendered.yaml
+          grep -q 'serviceAccountName: aws-load-balancer-controller' /tmp/lbc-rendered.yaml
+          grep -q 'name: aws-load-balancer-controller' /tmp/lbc-rendered.yaml
       - name: Render and assert production workloads
         shell: bash
         run: |

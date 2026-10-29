@@ -14,6 +14,8 @@ The module is behind `enable_eks = false` by default. It does not provision anyt
 - You have an IAM role or user ARN for the intended Kubernetes cluster administrator.
 - You have a private route to the VPC (VPN, Direct Connect, or an approved management host) before attempting Kubernetes API calls.
 - If enabling the outbox worker identity, the SQS queue already exists and its ARN is known.
+- If enabling the AWS Load Balancer Controller identity, its Helm chart is installed separately from an approved private management path; the controller requires a `kube-system/aws-load-balancer-controller` service account.
+- If enabling the WAF ACL, obtain approval for WAF managed-rule and request-rate costs and validate false positives in staging.
 
 ## Configuration
 
@@ -77,7 +79,7 @@ If the SQS queue ARN was supplied, verify the association exists and test the wo
 ## Limitations and next hardening
 
 - The node role includes the VPC CNI managed policy by default for first-boot reliability. Follow [the VPC CNI identity runbook](eks-vpc-cni-pod-identity-runbook.md) to configure and validate a dedicated identity before removing the node-role permission.
-- The module does not install AWS Load Balancer Controller, autoscaler/Karpenter, External Secrets, ingress/WAF, RDS, Redis, application secrets or application releases.
+- Terraform can provision the controller's IAM/Pod Identity and optional WAF ACL, but does not install the controller Helm chart. Follow [the ALB Controller and WAF runbook](alb-controller-waf-runbook.md). Autoscaler/Karpenter, External Secrets, RDS, Redis, application secrets and application releases remain separate.
 - Private subnet egress uses the development network module's single NAT gateway by default; it is not AZ-resilient and incurs ongoing cost.
 - Cluster version upgrades, backup/restore strategy, admission policy, network policy, runtime security, observability dashboards and disaster recovery still need specific plans/tests.
 - Terraform destroy can remove cluster resources, but KMS deletion has a waiting period and logs are retained independently. Review teardown impact and data-retention requirements before deleting anything.

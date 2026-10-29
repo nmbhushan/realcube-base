@@ -347,3 +347,205 @@ resource "aws_eks_pod_identity_association" "outbox_worker" {
     aws_iam_role_policy.outbox_worker_sqs
   ]
 }
+
+
+# AWS Load Balancer Controller permissions are held by a dedicated Pod Identity
+# role, never by the general worker-node role. The IAM policy is pinned to the
+# upstream v3.6.2 policy file and must be reviewed when the controller is upgraded.
+data "aws_iam_policy_document" "load_balancer_controller_trust" {
+  count = var.enable_load_balancer_controller ? 1 : 0
+
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_eks_cluster.this.arn]
+    }
+  }
+}
+
+resource "aws_iam_policy" "load_balancer_controller" {
+  count = var.enable_load_balancer_controller ? 1 : 0
+
+  name        = "${var.name}-load-balancer-controller"
+  description = "Upstream AWS Load Balancer Controller v3.6.2 IAM policy."
+  policy      = file("${path.module}/policies/aws-load-balancer-controller-iam-policy.json")
+  tags        = var.tags
+}
+
+resource "aws_iam_role" "load_balancer_controller" {
+  count = var.enable_load_balancer_controller ? 1 : 0
+
+  name               = "${var.name}-load-balancer-controller"
+  assume_role_policy = data.aws_iam_policy_document.load_balancer_controller_trust[0].json
+  tags               = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "load_balancer_controller" {
+  count = var.enable_load_balancer_controller ? 1 : 0
+
+  role       = aws_iam_role.load_balancer_controller[0].name
+  policy_arn = aws_iam_policy.load_balancer_controller[0].arn
+}
+
+resource "aws_eks_pod_identity_association" "load_balancer_controller" {
+  count = var.enable_load_balancer_controller ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "kube-system"
+  service_account = "aws-load-balancer-controller"
+  role_arn        = aws_iam_role.load_balancer_controller[0].arn
+
+  tags = var.tags
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.load_balancer_controller
+  ]
+}
+
+# Regional Web ACL for ALBs. Request sampling is disabled to reduce the
+# chance that request data is retained in WAF samples; CloudWatch metrics remain enabled.
+resource "aws_wafv2_web_acl" "platform" {
+  count = var.enable_platform_waf_web_acl ? 1 : 0
+
+  name  = "${var.name}-platform-waf"
+  scope = "REGIONAL"
+
+  default_action {
+    allow {}
+  }
+
+  rule {
+    name     = "AWSManagedRulesAmazonIpReputationList"
+    priority = 10
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesAmazonIpReputationList"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${replace(var.name, "-", "")}IpReputation"
+      sampled_requests_enabled   = false
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 20
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${replace(var.name, "-", "")}CommonRules"
+      sampled_requests_enabled   = false
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesKnownBadInputsRuleSet"
+    priority = 30
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${replace(var.name, "-", "")}KnownBadInputs"
+      sampled_requests_enabled   = false
+    }
+  }
+
+  rule {
+    name     = "AWSManagedRulesSQLiRuleSet"
+    priority = 40
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesSQLiRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${replace(var.name, "-", "")}SQLi"
+      sampled_requests_enabled   = false
+    }
+  }
+
+  rule {
+    name     = "PerIpRateLimit"
+    priority = 50
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = var.waf_rate_limit
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${replace(var.name, "-", "")}RateLimit"
+      sampled_requests_enabled   = false
+    }
+  }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${replace(var.name, "-", "")}PlatformWebAcl"
+    sampled_requests_enabled   = false
+  }
+
+  tags = var.tags
+}

@@ -1,0 +1,19 @@
+# Values for the upstream aws-load-balancer-controller Helm chart.
+# Chart version is pinned in docs/alb-controller-waf-runbook.md.
+# This file is a values overlay, not a standalone chart.
+clusterName: REPLACE_WITH_EKS_CLUSTER_NAME
+region: ap-south-1
+vpcId: REPLACE_WITH_VPC_ID
+
+replicaCount: 2
+enableShield: true
+enableWaf: true
+enableWafv2: true
+
+serviceAccount:
+  create: false
+  name: aws-load-balancer-controller
+  automountServiceAccountToken: true
+
+# Keep the controller on managed EC2 worker nodes and spread replicas by the
+# upstream chart's default anti-affinity/topology settings.

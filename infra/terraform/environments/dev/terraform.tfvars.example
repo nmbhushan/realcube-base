@@ -28,3 +28,9 @@ eks_access_events_queue_arn = ""
 eks_enable_vpc_cni_pod_identity    = false
 eks_remove_node_cni_policy         = false
 eks_approve_vpc_cni_policy_cutover = false
+
+# ALB Controller identity and WAF are separate opt-ins. The controller Helm chart
+# is installed separately from an approved private operator network path.
+eks_enable_load_balancer_controller = false
+eks_enable_platform_waf_web_acl     = false
+eks_waf_rate_limit                  = 2000

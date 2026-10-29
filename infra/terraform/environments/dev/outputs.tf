@@ -57,3 +57,18 @@ output "eks_vpc_cni_pod_identity_enabled" {
   description = "Whether the dedicated VPC CNI Pod Identity association is configured; null while EKS is disabled."
   value       = var.enable_eks ? module.eks[0].vpc_cni_pod_identity_enabled : null
 }
+
+output "eks_load_balancer_controller_role_arn" {
+  description = "AWS Load Balancer Controller Pod Identity role ARN, or null when disabled."
+  value       = var.enable_eks ? module.eks[0].load_balancer_controller_role_arn : null
+}
+
+output "eks_load_balancer_controller_enabled" {
+  description = "Whether the AWS Load Balancer Controller Pod Identity association is configured, or null while EKS is disabled."
+  value       = var.enable_eks ? module.eks[0].load_balancer_controller_enabled : null
+}
+
+output "eks_platform_waf_web_acl_arn" {
+  description = "Regional WAFv2 Web ACL ARN for ALB ingress annotations, or null when disabled."
+  value       = var.enable_eks ? module.eks[0].platform_waf_web_acl_arn : null
+}
