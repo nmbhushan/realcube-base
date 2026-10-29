@@ -4,11 +4,15 @@ import { HealthController } from './health.controller';
 import { WorkItemsController } from './work-items/work-items.controller';
 import { WorkItemsService } from './work-items/work-items.service';
 import { PIMS_POOL } from './db/database.constants';
+import { EntitlementService } from './auth/entitlement.service';
+import { SqsAccessEventConsumerService } from './access-events/sqs-access-event-consumer.service';
 
 @Module({
   controllers: [HealthController, WorkItemsController],
   providers: [
     WorkItemsService,
+    EntitlementService,
+    SqsAccessEventConsumerService,
     {
       provide: PIMS_POOL,
       useFactory: () => {
