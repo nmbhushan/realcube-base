@@ -2,8 +2,9 @@
 
 ## Identity and access
 - [ ] Configure OIDC issuer, audience, JWKS URL, callback and logout URLs.
-- [ ] Replace the development bearer-token entry field with the reviewed production authorization-code/session (or BFF) flow.
-- [ ] Implement secure login/session lifecycle and error handling.
+- [ ] Verify authorization-code + PKCE, state/nonce checks, token refresh, logout and error handling with the selected OIDC provider.
+- [ ] Configure HTTPS, Secure/HttpOnly/SameSite cookies, Redis TLS/HA and managed secret injection for all web replicas.
+- [ ] Add rate limits, security headers/CSP, login-abuse detection and session-store alerts.
 - [ ] Verify the one-time bootstrap runbook against the chosen OIDC provider; rotate/remove bootstrap secrets immediately after use.
 - [ ] Test database-managed administrator grants, last-admin protection, and disabled/replayed bootstrap attempts.
 - [ ] Implement entitlement, roles/permissions and tenant guards.

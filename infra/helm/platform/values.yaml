@@ -7,6 +7,9 @@ frontend:
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
   port: 3000
+  envFromSecretName: enterprise-platform-web-env
+  apiInternalUrl: http://platform-api:3001
+  sessionCookieSecure: true
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
