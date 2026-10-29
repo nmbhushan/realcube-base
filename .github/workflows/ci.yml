@@ -49,3 +49,24 @@ jobs:
       - run: npm test
       - run: npm run test:production-config
       - run: npm run build
+
+  helm-chart-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - name: Lint Helm chart
+        run: helm lint infra/helm/platform
+      - name: Render and assert production workloads
+        shell: bash
+        run: |
+          helm template enterprise-platform infra/helm/platform \
+            --set frontend.image.repository=example.com/realcube/platform-frontend \
+            --set frontend.image.tag=ci-test \
+            --set api.image.repository=example.com/realcube/platform-api \
+            --set api.image.tag=ci-test > /tmp/platform-rendered.yaml
+          grep -q 'kind: PodDisruptionBudget' /tmp/platform-rendered.yaml
+          grep -q '/api/health/ready' /tmp/platform-rendered.yaml
+          grep -q 'maxUnavailable: 0' /tmp/platform-rendered.yaml

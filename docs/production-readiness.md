@@ -41,3 +41,12 @@ The frontend image runs `scripts/production-preflight.mjs` before starting Next.
 The Helm frontend deployment sets `PLATFORM_ENV=production` and defaults the client-IP header to `x-forwarded-for` for an AWS ALB ingress. Confirm the actual ingress overwrites/appends this header as expected, and ensure the frontend Service is private behind the trusted ingress. Supply the actual origin, issuer, client credentials, JWKS URL, API audience, exact callback/logout URLs, and TLS Redis URL via the configured Kubernetes secret. The local Compose file sets `PLATFORM_ENV=local`, so its disposable non-TLS Redis service can still be used for local development.
 
 CI runs the preflight validator's Node test suite. This static/startup validation is not a provider connectivity test and does not replace the selected IdP smoke test.
+
+
+## Kubernetes rollout and health gates
+
+The Helm chart configures startup, readiness and liveness probes independently for the API and frontend. API readiness checks PostgreSQL; frontend readiness checks the Redis session store. Liveness checks do not depend on those external stores, avoiding restart loops during dependency outages. Startup probes allow up to 150 seconds for containers to initialize before liveness takes over.
+
+Both replicated web workloads use rolling updates with `maxUnavailable: 0`, one surge replica by default, readiness stabilization, a 10-minute progress deadline and five retained revisions. PodDisruptionBudgets are rendered only when the configured replica count is at least two, and keep one API/frontend pod available during voluntary disruptions. Tune resource requests, probe thresholds and rollout settings against actual load and cluster capacity before release.
+
+CI lints and renders the Helm chart, and asserts the readiness probes, zero-unavailable rollout policy and disruption budgets are present. This validates templates, not an actual cluster deployment: still perform a canary rollout and rollback drill in a non-production EKS environment.

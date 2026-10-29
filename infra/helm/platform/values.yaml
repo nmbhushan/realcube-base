@@ -6,6 +6,12 @@ frontend:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-frontend
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
+  rollout:
+    maxSurge: 1
+    maxUnavailable: 0
+    minReadySeconds: 5
+    revisionHistoryLimit: 5
+    progressDeadlineSeconds: 600
   port: 3000
   envFromSecretName: enterprise-platform-web-env
   apiInternalUrl: http://platform-api:3001
@@ -21,6 +27,12 @@ api:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
+  rollout:
+    maxSurge: 1
+    maxUnavailable: 0
+    minReadySeconds: 5
+    revisionHistoryLimit: 5
+    progressDeadlineSeconds: 600
   port: 3001
   envFromSecretName: enterprise-platform-api-env
   resources:

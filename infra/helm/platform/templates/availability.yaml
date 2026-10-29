@@ -1,0 +1,29 @@
+{{- if ge (int .Values.api.replicas) 2 }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-api
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: enterprise-workspace
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: platform-api
+{{- end }}
+{{- if ge (int .Values.frontend.replicas) 2 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-frontend
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: enterprise-workspace
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: platform-frontend
+{{- end }}
