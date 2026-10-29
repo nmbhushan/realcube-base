@@ -38,4 +38,4 @@ JOIN tenants t
   ON t.id = a.tenant_id
  AND t.status = 'active'
 WHERE a.project_code = 'PIMS'
-ON CONFLICT DO NOTHING;
+;
