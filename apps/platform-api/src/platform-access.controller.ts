@@ -247,7 +247,7 @@ export class PlatformAccessController {
         tenantId: dto.tenantId,
         payload: details,
       });
-      return { status: dto.status, ...details };
+      return details;
     });
   }
 
