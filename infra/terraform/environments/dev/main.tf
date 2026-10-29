@@ -36,8 +36,8 @@ module "eks" {
   count  = var.enable_eks ? 1 : 0
   source = "../../modules/eks"
 
-  name                       = "${var.project_name}-eks"
-  kubernetes_version          = var.eks_kubernetes_version
+  name                         = "${var.project_name}-eks"
+  kubernetes_version           = var.eks_kubernetes_version
   private_subnet_ids           = module.network.private_subnet_ids
   cluster_admin_principal_arn  = var.eks_cluster_admin_principal_arn
   endpoint_public_access       = var.eks_endpoint_public_access

@@ -1,7 +1,7 @@
 locals {
   worker_identity_enabled = trimspace(var.access_events_queue_arn) != ""
-  cluster_tags = merge(var.tags, {
-    Name = var.name
+  cluster_tags            = merge(var.tags, {
+    Name                                = var.name
     "kubernetes.io/cluster/${var.name}" = "owned"
   })
 }
@@ -28,11 +28,11 @@ resource "aws_cloudwatch_log_group" "cluster" {
 }
 
 resource "aws_iam_role" "cluster" {
-  name = "${var.name}-cluster-role"
+  name               = "${var.name}-cluster-role"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = {
         Service = "eks.amazonaws.com"
       }
@@ -109,11 +109,11 @@ resource "aws_eks_access_policy_association" "cluster_admin" {
 }
 
 resource "aws_iam_role" "nodes" {
-  name = "${var.name}-nodes-role"
+  name               = "${var.name}-nodes-role"
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [{
-      Effect = "Allow"
+      Effect    = "Allow"
       Principal = {
         Service = "ec2.amazonaws.com"
       }
@@ -163,12 +163,12 @@ resource "aws_launch_template" "nodes" {
 
   tag_specifications {
     resource_type = "instance"
-    tags           = merge(local.cluster_tags, { Name = "${var.name}-worker" })
+    tags          = merge(local.cluster_tags, { Name = "${var.name}-worker" })
   }
 
   tag_specifications {
     resource_type = "volume"
-    tags           = merge(local.cluster_tags, { Name = "${var.name}-worker-volume" })
+    tags          = merge(local.cluster_tags, { Name = "${var.name}-worker-volume" })
   }
 
   tags = local.cluster_tags
@@ -257,10 +257,10 @@ resource "aws_iam_role" "outbox_worker" {
 resource "aws_iam_role_policy" "outbox_worker_sqs" {
   count = local.worker_identity_enabled ? 1 : 0
 
-  name = "${var.name}-outbox-send-message"
-  role = aws_iam_role.outbox_worker[0].id
+  name   = "${var.name}-outbox-send-message"
+  role   = aws_iam_role.outbox_worker[0].id
   policy = jsonencode({
-    Version = "2012-10-17"
+    Version   = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
       Action   = ["sqs:SendMessage"]
