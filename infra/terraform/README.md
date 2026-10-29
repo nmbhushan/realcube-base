@@ -18,6 +18,8 @@ The `modules/eks/` module provides a private EKS control plane and managed node 
 
 The development root gates the EKS module behind `enable_eks = false`. Keep it disabled until the remote backend is verified, the account/role and cost have been approved, and a private operator access path is available. The API endpoint is private by default. Any public endpoint needs a non-empty, reviewed CIDR allow-list.
 
+VPC CNI identity hardening is opt-in and staged: Terraform can first create a separate `kube-system/aws-node` Pod Identity association while retaining the node-role CNI policy, then remove the node-role policy only in a second apply with explicit cutover approval. See [the VPC CNI identity runbook](../../docs/eks-vpc-cni-pod-identity-runbook.md).
+
 See [the EKS foundation runbook](../../docs/eks-foundation-runbook.md) before planning or applying. Terraform CI does not create resources.
 
 ## Validate

@@ -130,3 +130,26 @@ variable "eks_access_events_queue_arn" {
     error_message = "eks_access_events_queue_arn must be empty or a valid SQS queue ARN."
   }
 }
+
+variable "eks_enable_vpc_cni_pod_identity" {
+  type        = bool
+  description = "Create a dedicated Pod Identity role/association for kube-system/aws-node; enable first while retaining the node-role CNI policy."
+  default     = false
+}
+
+variable "eks_remove_node_cni_policy" {
+  type        = bool
+  description = "Remove AmazonEKS_CNI_Policy from the node role only after the VPC CNI Pod Identity association is validated in staging."
+  default     = false
+
+  validation {
+    condition     = !var.eks_remove_node_cni_policy || (var.eks_enable_vpc_cni_pod_identity && var.eks_approve_vpc_cni_policy_cutover)
+    error_message = "Removing the node CNI policy requires eks_enable_vpc_cni_pod_identity=true and eks_approve_vpc_cni_policy_cutover=true after successful staging verification."
+  }
+}
+
+variable "eks_approve_vpc_cni_policy_cutover" {
+  type        = bool
+  description = "Explicit approval gate for the second-phase CNI IAM cutover after staging verification."
+  default     = false
+}

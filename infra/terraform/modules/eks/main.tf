@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   worker_identity_enabled = trimspace(var.access_events_queue_arn) != ""
   cluster_tags = merge(var.tags, {
@@ -133,9 +135,10 @@ resource "aws_iam_role_policy_attachment" "node_ecr_pull" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPullOnly"
 }
 
-# Retained on the node role for reliable first-boot networking. A follow-up hardening
-# change can move VPC CNI permissions to their own Pod Identity after staging verification.
+# Keep the node-role permission during the first identity rollout. Remove it only in a
+# later, separately approved apply after the Pod Identity association has been tested in staging.
 resource "aws_iam_role_policy_attachment" "node_cni" {
+  count      = var.remove_node_cni_policy ? 0 : 1
   role       = aws_iam_role.nodes.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
 }
@@ -233,6 +236,54 @@ resource "aws_eks_addon" "pod_identity_agent" {
   depends_on = [aws_eks_node_group.this]
 }
 
+resource "aws_iam_role" "vpc_cni" {
+  count = var.enable_vpc_cni_pod_identity ? 1 : 0
+
+  name = "${var.name}-vpc-cni"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "pods.eks.amazonaws.com"
+      }
+      Action = ["sts:AssumeRole", "sts:TagSession"]
+      Condition = {
+        StringEquals = {
+          "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+        }
+        ArnEquals = {
+          "aws:SourceArn" = aws_eks_cluster.this.arn
+        }
+      }
+    }]
+  })
+  tags = var.tags
+}
+
+resource "aws_iam_role_policy_attachment" "vpc_cni" {
+  count = var.enable_vpc_cni_pod_identity ? 1 : 0
+
+  role       = aws_iam_role.vpc_cni[0].name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+}
+
+resource "aws_eks_pod_identity_association" "vpc_cni" {
+  count = var.enable_vpc_cni_pod_identity ? 1 : 0
+
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "kube-system"
+  service_account = "aws-node"
+  role_arn        = aws_iam_role.vpc_cni[0].arn
+
+  tags = var.tags
+
+  depends_on = [
+    aws_eks_addon.pod_identity_agent,
+    aws_iam_role_policy_attachment.vpc_cni
+  ]
+}
+
 data "aws_iam_policy_document" "worker_pod_identity_trust" {
   count = local.worker_identity_enabled ? 1 : 0
 
@@ -243,6 +294,18 @@ data "aws_iam_policy_document" "worker_pod_identity_trust" {
       identifiers = ["pods.eks.amazonaws.com"]
     }
     actions = ["sts:AssumeRole", "sts:TagSession"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_eks_cluster.this.arn]
+    }
   }
 }
 

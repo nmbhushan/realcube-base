@@ -47,3 +47,13 @@ output "eks_outbox_worker_role_arn" {
   description = "Outbox worker Pod Identity role ARN if an SQS queue ARN was supplied; otherwise null."
   value       = var.enable_eks ? module.eks[0].outbox_worker_role_arn : null
 }
+
+output "eks_vpc_cni_role_arn" {
+  description = "Dedicated VPC CNI Pod Identity role ARN, or null when EKS or the identity association is disabled."
+  value       = var.enable_eks ? module.eks[0].vpc_cni_role_arn : null
+}
+
+output "eks_vpc_cni_pod_identity_enabled" {
+  description = "Whether the dedicated VPC CNI Pod Identity association is configured; null while EKS is disabled."
+  value       = var.enable_eks ? module.eks[0].vpc_cni_pod_identity_enabled : null
+}

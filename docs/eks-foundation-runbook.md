@@ -76,7 +76,7 @@ If the SQS queue ARN was supplied, verify the association exists and test the wo
 
 ## Limitations and next hardening
 
-- The node role currently includes the VPC CNI managed policy for first-boot reliability; a later staging-validated hardening should move CNI permissions to a dedicated workload/add-on identity.
+- The node role includes the VPC CNI managed policy by default for first-boot reliability. Follow [the VPC CNI identity runbook](eks-vpc-cni-pod-identity-runbook.md) to configure and validate a dedicated identity before removing the node-role permission.
 - The module does not install AWS Load Balancer Controller, autoscaler/Karpenter, External Secrets, ingress/WAF, RDS, Redis, application secrets or application releases.
 - Private subnet egress uses the development network module's single NAT gateway by default; it is not AZ-resilient and incurs ongoing cost.
 - Cluster version upgrades, backup/restore strategy, admission policy, network policy, runtime security, observability dashboards and disaster recovery still need specific plans/tests.

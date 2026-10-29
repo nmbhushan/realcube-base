@@ -6,6 +6,7 @@
 3. Build reviewed Terraform modules and secure remote state. Network/ECR modules, remote-state bootstrap/migration configuration, and the EKS module are implemented; actual state migration and infrastructure provisioning require an approved operator.
 4. Establish ECR, Docker build and deployment standards. Immutable image references and a guarded Helm rollout/rollback script are implemented; end-to-end release rehearsal remains outstanding.
 5. Deploy and rehearse the opt-in private EKS baseline in non-production before production deployment.
+6. Validate the dedicated VPC CNI Pod Identity in staging, then complete the separately approved node-role policy cutover using the [CNI identity runbook](eks-vpc-cni-pod-identity-runbook.md).
 
 ## Stage 2 — Platform API
 1. Implement persistence for tenants, users, projects, entitlements, roles, permissions and audit.
