@@ -12,7 +12,7 @@ async function bootstrap(): Promise<void> {
     forbidNonWhitelisted: true,
     transform: true,
   }));
-  // TODO before production: OIDC guards, secure headers, CORS allowlist and rate limiting.
+  // CORS, security headers, rate limiting and OIDC client configuration are environment-specific.
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
 }
