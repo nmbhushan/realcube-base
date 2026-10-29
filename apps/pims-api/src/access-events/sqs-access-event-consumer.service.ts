@@ -148,6 +148,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      await client.query("SELECT set_config('app.tenant_id', $1, true)", [payload.tenantId]);
       const duplicate = await client.query(
         'SELECT 1 FROM pims_processed_access_events WHERE event_id = $1',
         [event.eventId],
