@@ -24,13 +24,16 @@ export class EntitlementService {
         entitlement_status: string;
         entitlement_version: string;
         projected_at: Date;
+        updated_at: Date | null;
+        consumer_updated_at: Date | null;
       }>(
-        `SELECT entitlement_status, entitlement_version, projected_at
-           FROM pims_entitlement_projection
-          WHERE oidc_issuer = $1
-            AND oidc_subject = $2
-            AND tenant_id = $3
-            AND project_code = 'PIMS'
+        `SELECT p.entitlement_status, p.entitlement_version, p.projected_at, s.updated_at
+           FROM pims_entitlement_projection p
+           LEFT JOIN pims_access_event_consumer_state s ON s.id = 1
+          WHERE p.oidc_issuer = $1
+            AND p.oidc_subject = $2
+            AND p.tenant_id = $3
+            AND p.project_code = 'PIMS'
           LIMIT 1`,
         [issuer, subject, tenantId],
       );
@@ -42,9 +45,11 @@ export class EntitlementService {
     const row = result.rows[0];
     if (!row) return { active: false, version: null, projectedAt: null };
 
+    if (!row.updated_at) throw new ServiceUnavailableException('PIMS entitlement consumer has not initialized');
     const projectedAt = new Date(row.projected_at);
+    const heartbeatAgeMs = Date.now() - new Date(row.updated_at).getTime();
     const ageMs = Date.now() - projectedAt.getTime();
-    if (!Number.isFinite(ageMs) || ageMs < -5000 || ageMs > maxProjectionAgeSeconds * 1000) {
+    if (!Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs < -5000 || heartbeatAgeMs > maxProjectionAgeSeconds * 1000) {
       throw new ServiceUnavailableException('PIMS entitlement projection is stale');
     }
 
