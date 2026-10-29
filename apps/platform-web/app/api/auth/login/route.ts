@@ -1,14 +1,30 @@
 import { randomNonce, randomPKCECodeVerifier, randomState, calculatePKCECodeChallenge, buildAuthorizationUrl } from 'openid-client';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  getOidcConfiguration, getOidcRedirectUri, getPlatformWebBaseUrl, logWebSecurityEvent,
+  checkRequestRateLimit, getOidcConfiguration, getOidcRedirectUri, getPlatformWebBaseUrl, logWebSecurityEvent,
   oidcTransactionCookieName, storeOidcTransaction, transactionCookieOptions,
 } from '../../../../lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET(_request: NextRequest) {
+export async function GET(request: NextRequest) {
+  try {
+    const decision = await checkRequestRateLimit(request, 'oidc-login', 10, 600);
+    if (!decision.allowed) {
+      logWebSecurityEvent('oidc.login.rate_limited', { reason: 'client_window_exceeded', status: 429 });
+      return NextResponse.json(
+        { error: 'Too many sign-in attempts. Please try again later.' },
+        { status: 429, headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfterSeconds) } },
+      );
+    }
+  } catch {
+    logWebSecurityEvent('oidc.login.rate_limit_unavailable', { reason: 'redis_unavailable', status: 503 });
+    return NextResponse.json({ error: 'Authentication service temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
+  }
+
   try {
     const configuration = await getOidcConfiguration();
     const state = randomState();

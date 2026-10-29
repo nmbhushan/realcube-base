@@ -38,3 +38,12 @@ For production, set `SESSION_COOKIE_SECURE=true`, use an HTTPS `PLATFORM_WEB_BAS
 ## Known limits before rollout
 
 This commits a server-side OIDC client/session foundation, not a provider-specific final deployment. Verify discovery/client authentication, scopes/resource/audience, email claim mapping, session refresh and RP-initiated logout against the selected IdP. Add provider-backed end-to-end tests, rate limiting, security headers/CSP, threat modeling and Redis HA/monitoring before production.
+
+
+## Content Security Policy and rate limiting
+
+Next.js middleware creates a fresh nonce per request and sets a Content Security Policy that blocks objects and frames, restricts resource loads to the same origin, and permits framework scripts with the request nonce and `strict-dynamic`. Production mode adds `upgrade-insecure-requests`. Verify the policy in a browser against all UI routes before rollout. Review any new third-party script, image, API or font source before adding it to the policy, and do not add `unsafe-eval`.
+
+Redis enforces atomic fixed-window limits across web replicas. Defaults: 10 sign-in starts per 10 minutes, 20 callbacks per 10 minutes, 120 session-status checks per minute, 30 logout requests per minute, 600 BFF requests per minute per client and 300 per minute per session. Limits fail closed with HTTP 503 if Redis is unavailable and return HTTP 429 with `Retry-After` when exceeded.
+
+`RATE_LIMIT_CLIENT_IP_HEADER` must name a header that trusted ingress overwrites or normalizes. The local default is `x-real-ip`; for AWS ALB's `X-Forwarded-For`, configure that header and verify the final address is the client address appended by the trusted load balancer. Never rely on arbitrary client-provided forwarding values, and do not expose the application directly to networks that can spoof the configured header. Rate-limit keys store a hash of the subject rather than the raw IP or session identifier.

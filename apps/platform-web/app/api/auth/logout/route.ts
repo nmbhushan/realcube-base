@@ -1,7 +1,7 @@
 import * as oidc from 'openid-client';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  clearCookieValue, destroyWebSession, ensureSameOriginMutation, getOidcConfiguration,
+  checkRequestRateLimit, clearCookieValue, destroyWebSession, ensureSameOriginMutation, getOidcConfiguration,
   getPlatformWebBaseUrl, getPostLogoutRedirectUri, getRedisClient, parseCookie,
   sessionCookieName, sessionRedisKeyForId, logWebSecurityEvent,
   type StoredWebSession,
@@ -11,6 +11,22 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  try {
+    const decision = await checkRequestRateLimit(
+      request, 'oidc-logout', 30, 60,
+      request.cookies.get(sessionCookieName())?.value,
+    );
+    if (!decision.allowed) {
+      return NextResponse.json({ error: 'Too many logout requests.' }, {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfterSeconds) },
+      });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Authentication service temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
+  }
   if (!ensureSameOriginMutation(request)) {
     logWebSecurityEvent('oidc.logout.rejected', { reason: 'cross_origin_mutation', status: 403 });
     return NextResponse.json({ error: 'Same-origin logout required' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });

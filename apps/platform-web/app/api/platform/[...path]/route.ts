@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  clearCookieValue, destroyWebSession, ensureSameOriginMutation, getStoredWebSession,
-  parseCookie, sessionCookieName, logWebSecurityEvent,
+  checkRequestRateLimit, clearCookieValue, destroyWebSession, ensureSameOriginMutation, getStoredWebSession,
+  getTrustedRateLimitSubject, parseCookie, sessionCookieName, logWebSecurityEvent,
 } from '../../../../lib/server-auth';
 
 export const runtime = 'nodejs';
@@ -11,6 +11,20 @@ type RouteContext = { params: Promise<{ path: string[] }> };
 
 async function proxy(request: NextRequest, context: RouteContext) {
   const method = request.method.toUpperCase();
+  try {
+    const clientDecision = await checkRequestRateLimit(request, 'bff-client', 600, 60);
+    if (!clientDecision.allowed) {
+      return NextResponse.json({ message: 'Too many requests. Please slow down.' }, {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(clientDecision.retryAfterSeconds) },
+      });
+    }
+  } catch {
+    logWebSecurityEvent('bff.rate_limit_unavailable', { reason: 'redis_unavailable', status: 503 });
+    return NextResponse.json({ message: 'Request protection temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
+  }
   if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
     return NextResponse.json({ message: 'Method not allowed' }, { status: 405, headers: { Allow: 'GET, POST, PUT, PATCH, DELETE' } });
   }
@@ -36,6 +50,24 @@ async function proxy(request: NextRequest, context: RouteContext) {
     const response = NextResponse.json({ message: 'Authentication required' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     response.cookies.set(sessionCookieName(), '', clearCookieValue(sessionCookieName()));
     return response;
+  }
+
+  try {
+    const sessionId = parseCookie(request, sessionCookieName());
+    const decision = await checkRequestRateLimit(
+      request, 'bff-session', 300, 60, sessionId || getTrustedRateLimitSubject(request),
+    );
+    if (!decision.allowed) {
+      return NextResponse.json({ message: 'Too many requests for this session.' }, {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfterSeconds) },
+      });
+    }
+  } catch {
+    logWebSecurityEvent('bff.session_rate_limit_unavailable', { reason: 'redis_unavailable', status: 503 });
+    return NextResponse.json({ message: 'Request protection temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
   }
 
   const apiBase = (process.env.PLATFORM_API_INTERNAL_URL || 'http://localhost:3001').replace(/\/+$/, '');

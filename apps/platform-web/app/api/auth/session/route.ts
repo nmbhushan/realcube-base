@@ -1,12 +1,27 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  clearCookieValue, getStoredWebSession, sessionCookieName, logWebSecurityEvent,
+  checkRequestRateLimit, clearCookieValue, getStoredWebSession, sessionCookieName, logWebSecurityEvent,
 } from '../../../../lib/server-auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  try {
+    const decision = await checkRequestRateLimit(request, 'session-status', 120, 60);
+    if (!decision.allowed) {
+      return NextResponse.json({ authenticated: false, error: 'Too many session checks.' }, {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(decision.retryAfterSeconds) },
+      });
+    }
+  } catch {
+    logWebSecurityEvent('session.rate_limit_unavailable', { reason: 'redis_unavailable', status: 503 });
+    return NextResponse.json({ authenticated: false, error: 'Session service temporarily unavailable.' }, {
+      status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '5' },
+    });
+  }
+
   try {
     const session = await getStoredWebSession(request);
     const response = NextResponse.json(
