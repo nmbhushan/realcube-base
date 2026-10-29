@@ -7,6 +7,7 @@
 4. Establish ECR, Docker build and deployment standards. Immutable image references and a guarded Helm rollout/rollback script are implemented; end-to-end release rehearsal remains outstanding.
 5. Deploy and rehearse the opt-in private EKS baseline in non-production before production deployment.
 6. Validate the dedicated VPC CNI Pod Identity in staging, then complete the separately approved node-role policy cutover using the [CNI identity runbook](eks-vpc-cni-pod-identity-runbook.md).
+7. Provision the optional Load Balancer Controller identity and WAF ACL, install the pinned controller chart from a private operator path, and validate ALB ingress/TLS/WAF in staging before production.
 
 ## Stage 2 — Platform API
 1. Implement persistence for tenants, users, projects, entitlements, roles, permissions and audit.
