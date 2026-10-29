@@ -10,6 +10,7 @@ export interface PimsPrincipal {
   tenantId: string;
   projectAccess: string[];
   permissions: string[];
+  entitlementVersion?: string;
 }
 
 export interface PimsAuthenticatedRequest extends Request {

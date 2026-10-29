@@ -166,6 +166,8 @@ export class AdminController {
         payload: {
           tenantId: dto.tenantId, userId: dto.userId, projectCode, status: dto.status,
           entitlementVersion: saved.entitlementVersion,
+          oidcIssuer: user.oidcIssuer,
+          oidcSubject: user.oidcSubject,
         },
       });
       if (dto.status === 'revoked') {

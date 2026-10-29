@@ -8,12 +8,15 @@ import {
 } from '@nestjs/common';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { PimsAuthenticatedRequest, PimsPrincipal, readStringArrayClaim } from './pims-auth';
+import { EntitlementService } from './entitlement.service';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class OidcAccessGuard implements CanActivate {
   private jwks?: ReturnType<typeof createRemoteJWKSet>;
+
+  constructor(private readonly entitlements: EntitlementService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const issuer = process.env.OIDC_ISSUER_URL;
@@ -56,19 +59,20 @@ export class OidcAccessGuard implements CanActivate {
       throw new ForbiddenException('A verified active tenant context is required');
     }
 
-    const projectAccess = readStringArrayClaim(payload, 'project_access');
-    if (!projectAccess.includes('PIMS')) {
-      throw new ForbiddenException('PIMS project entitlement is required');
-    }
-
     const permissionsClaim = process.env.PIMS_PERMISSIONS_CLAIM ?? 'permissions';
     const permissions = readStringArrayClaim(payload, permissionsClaim);
+    const entitlement = await this.entitlements.getCurrentEntitlement(payload.iss, payload.sub, tenantId);
+    if (!entitlement.active) {
+      throw new ForbiddenException('Active PIMS project entitlement is required');
+    }
+
     const principal: PimsPrincipal = {
       issuer: payload.iss,
       subject: payload.sub,
       tenantId,
-      projectAccess,
+      projectAccess: ['PIMS'],
       permissions,
+      entitlementVersion: entitlement.version ?? undefined,
     };
     request.pimsPrincipal = principal;
     return true;
