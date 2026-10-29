@@ -96,14 +96,14 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       throw new Error('SQS message body or receipt handle is missing');
     }
     const event = this.parseEvent(message.Body);
-    await this.applyEvent(event);
+    if (event) await this.applyEvent(event);
     await this.client.send(new DeleteMessageCommand({
       QueueUrl: this.queueUrl,
       ReceiptHandle: message.ReceiptHandle,
     }));
   }
 
-  private parseEvent(body: string): PlatformAccessEvent {
+  private parseEvent(body: string): PlatformAccessEvent | null {
     let parsed: unknown;
     try { parsed = JSON.parse(body); } catch { throw new Error('Invalid access event JSON'); }
     if (!parsed || typeof parsed !== 'object') throw new Error('Invalid access event');
@@ -113,10 +113,8 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       typeof event.eventId !== 'string' ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event.eventId) ||
       typeof event.eventType !== 'string' ||
-      !event.eventType.startsWith('platform.project_access.') ||
       typeof event.occurredAt !== 'string' ||
       !payload ||
-      payload.projectCode !== 'PIMS' ||
       typeof payload.tenantId !== 'string' ||
       typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
       typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
@@ -124,8 +122,20 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
       !/^\d+$/.test(String(payload.entitlementVersion))
     ) {
-      throw new Error('Access event does not match the PIMS entitlement contract');
+      throw new Error('Access event envelope is invalid');
     }
+    // The Platform queue is shared across projects and event types. Consume irrelevant events
+    // without applying them so they cannot poison the PIMS projection.
+    if (!event.eventType.startsWith('platform.project_access.')) return null;
+    if (payload.projectCode !== 'PIMS') return null;
+    if (
+      typeof payload.tenantId !== 'string' ||
+      typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
+      typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
+      (payload.status !== 'granted' && payload.status !== 'revoked') ||
+      event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
+      !/^\\d+$/.test(String(payload.entitlementVersion))
+    ) throw new Error('PIMS access event does not match the entitlement contract');
     const version = BigInt(String(payload.entitlementVersion));
     if (version < 1n) throw new Error('Invalid entitlement version');
     const date = new Date(event.occurredAt);
