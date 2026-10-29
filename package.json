@@ -5,6 +5,6 @@
     "dev:api": "npm --prefix apps/platform-api run start:dev",
     "dev:web": "npm --prefix apps/platform-web run dev",
     "build:api": "npm --prefix apps/platform-api run build",
-    "build:web": "npm --prefix apps/platform-web run build"
+    "build:web": "npm --prefix apps/platform-web run build",\n    "build:pims-api": "npm --prefix apps/pims-api run build",\n    "test:pims-api": "npm --prefix apps/pims-api test"
   }
 }
