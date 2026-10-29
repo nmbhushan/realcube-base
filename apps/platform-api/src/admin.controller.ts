@@ -64,6 +64,9 @@ export class AdminController {
     @Body() dto: CreateTenantDto,
     @CurrentPrincipal() principal: JWTPayload,
   ) {
+    if (!dto.externalKey.trim() || !dto.name.trim()) {
+      throw new BadRequestException('Tenant key and name cannot be blank');
+    }
     return this.dataSource.transaction(async (manager) => {
       const repository = manager.getRepository(Tenant);
       const duplicate = await repository.findOneBy({ externalKey: dto.externalKey });
@@ -102,7 +105,6 @@ export class AdminController {
       throw new BadRequestException('Validated issuer and administrator subject are required');
     }
 
-    if (!dto.externalKey.trim() || !dto.name.trim()) throw new BadRequestException('Tenant key and name cannot be blank');
     return this.dataSource.transaction(async (manager) => {
       const tenant = await manager.getRepository(Tenant).findOneBy({ id: dto.tenantId });
       if (!tenant || tenant.status !== 'active') {
