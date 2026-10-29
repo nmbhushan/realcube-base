@@ -156,6 +156,8 @@ export class AdminController {
         details: {
           userId: dto.userId, projectCode, status: dto.status,
           entitlementVersion: saved.entitlementVersion,
+          oidcIssuer: user.oidcIssuer,
+          oidcSubject: user.oidcSubject,
         },
       });
       await this.writeOutbox(manager, {
