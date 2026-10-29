@@ -22,6 +22,7 @@ describe('EntitlementService', () => {
       entitlement_version: '7',
       projected_at: new Date(),
       updated_at: new Date(),
+      healthy: true,
     }] });
     await expect(service.getCurrentEntitlement('https://issuer.test', 'subject-a', '11111111-1111-4111-8111-111111111111'))
       .resolves.toMatchObject({ active: true, version: '7' });
@@ -47,6 +48,7 @@ describe('EntitlementService', () => {
       entitlement_version: '7',
       projected_at: new Date(),
       updated_at: new Date(Date.now() - 120_000),
+      healthy: true,
     }] });
     await expect(service.getCurrentEntitlement('issuer', 'subject', '11111111-1111-4111-8111-111111111111'))
       .rejects.toBeInstanceOf(ServiceUnavailableException);
