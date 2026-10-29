@@ -1,0 +1,5 @@
+# Choose a globally unique bucket name using your AWS account ID.
+state_bucket_name = "realcube-workspace-tfstate-123456789012-ap-south-1"
+aws_region        = "ap-south-1"
+project_name      = "realcube-workspace"
+environment       = "shared"
