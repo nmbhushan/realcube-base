@@ -68,14 +68,19 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
         VisibilityTimeout: 45,
         AttributeNames: ['ApproximateReceiveCount'],
       }));
-      await this.pool.query('UPDATE pims_access_event_consumer_state SET updated_at = now() WHERE id = 1');
+      let allMessagesProcessed = true;
       for (const message of response.Messages ?? []) {
         try {
           await this.processMessage(message);
         } catch (error) {
+          allMessagesProcessed = false;
+          await this.pool.query('UPDATE pims_access_event_consumer_state SET healthy = false WHERE id = 1').catch(() => undefined);
           // Leave the message for SQS retry/DLQ policy. Do not log its body or identity claims.
           this.logger.warn(`Access event processing failed; message will be retried: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
+      }
+      if (allMessagesProcessed) {
+        await this.pool.query('UPDATE pims_access_event_consumer_state SET updated_at = now() WHERE id = 1 AND healthy = true');
       }
       delay = 1000;
     } catch (error) {
@@ -116,6 +121,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
       typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
       (payload.status !== 'granted' && payload.status !== 'revoked') ||
+      event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
       !/^\d+$/.test(String(payload.entitlementVersion))
     ) {
       throw new Error('Access event does not match the PIMS entitlement contract');
@@ -161,7 +167,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
         [event.eventId, event.eventType],
       );
       await client.query(
-        'UPDATE pims_access_event_consumer_state SET last_success_at = now(), last_event_id = $1, updated_at = now() WHERE id = 1',
+        'UPDATE pims_access_event_consumer_state SET last_success_at = now(), last_event_id = $1 WHERE id = 1',
         [event.eventId],
       );
       await client.query('COMMIT');
