@@ -5,6 +5,34 @@ import * as oidc from 'openid-client';
 export const OIDC_TRANSACTION_TTL_SECONDS = 300;
 export const WEB_SESSION_TTL_SECONDS = 8 * 60 * 60;
 
+export function logWebSecurityEvent(
+  event: string,
+  details: { reason?: string; status?: number; durationMs?: number } = {},
+): void {
+  const safeEvent = /^[a-z][a-z0-9_.-]{2,80}$/.test(event) ? event : 'platform_web.event';
+  const reason = details.reason && /^[A-Za-z0-9_.-]{1,64}$/.test(details.reason)
+    ? details.reason
+    : undefined;
+  const status = Number.isInteger(details.status) && details.status! >= 100 && details.status! <= 599
+    ? details.status
+    : undefined;
+  const durationMs = Number.isFinite(details.durationMs) && details.durationMs! >= 0
+    ? Math.round(details.durationMs!)
+    : undefined;
+  const entry = {
+    timestamp: new Date().toISOString(),
+    level: safeEvent.includes('failed') || safeEvent.includes('rejected') ? 'warn' : 'info',
+    component: 'platform-web',
+    event: safeEvent,
+    ...(reason ? { reason } : {}),
+    ...(status ? { status } : {}),
+    ...(durationMs !== undefined ? { durationMs } : {}),
+  };
+  const output = JSON.stringify(entry);
+  if (entry.level === 'warn') console.warn(output);
+  else console.info(output);
+}
+
 export type SessionUser = {
   sub: string;
   iss: string;
@@ -97,7 +125,7 @@ export async function getRedisClient(): Promise<RedisClient> {
     redisInstance = createClient({ url: redisUrl });
     redisInstance.on('error', () => {
       // Do not log connection URLs or session data.
-      console.error('Platform web session store connection error');
+      logWebSecurityEvent('session_store.connection_failed');
     });
   }
   if (!redisInstance.isOpen) {
@@ -250,6 +278,7 @@ export async function getStoredWebSession(request: Request): Promise<StoredWebSe
   if (!existing.refreshToken) {
     if (existing.accessTokenExpiresAt > now) return existing;
     await destroyWebSession(sessionId);
+    logWebSecurityEvent('session.expired', { reason: 'access_token_expired_without_refresh' });
     return null;
   }
 
@@ -292,11 +321,14 @@ export async function getStoredWebSession(request: Request): Promise<StoredWebSe
       } : latest.user,
     };
     await storeWebSession(sessionId, updated);
+    logWebSecurityEvent('session.access_token_refreshed');
     return updated;
-  } catch {
+  } catch (error) {
+    logWebSecurityEvent('session.refresh_failed', { reason: error instanceof Error ? error.name : 'UnknownError' });
     const latest = await readWebSession(sessionId);
     if (latest && latest.accessTokenExpiresAt > Date.now()) return latest;
     await destroyWebSession(sessionId);
+    logWebSecurityEvent('session.expired', { reason: 'refresh_failed_after_access_expiry' });
     return null;
   } finally {
     await redis.eval(

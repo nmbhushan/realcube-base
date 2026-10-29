@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import {
   clearCookieValue, destroyWebSession, ensureSameOriginMutation, getOidcConfiguration,
   getPlatformWebBaseUrl, getPostLogoutRedirectUri, getRedisClient, parseCookie,
-  sessionCookieName, sessionRedisKeyForId,
+  sessionCookieName, sessionRedisKeyForId, logWebSecurityEvent,
   type StoredWebSession,
 } from '../../../../lib/server-auth';
 
@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   if (!ensureSameOriginMutation(request)) {
+    logWebSecurityEvent('oidc.logout.rejected', { reason: 'cross_origin_mutation', status: 403 });
     return NextResponse.json({ error: 'Same-origin logout required' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
   }
 
@@ -27,6 +28,7 @@ export async function POST(request: NextRequest) {
       await destroyWebSession(sessionId);
     }
   } catch {
+    logWebSecurityEvent('oidc.logout.failed', { reason: 'session_store_unavailable' });
     // Clear the browser cookie even if the store is unavailable; no token is sent to the browser.
     const response = NextResponse.redirect(new URL('/', getPlatformWebBaseUrl()), 303);
     response.cookies.set(sessionCookieName(), '', clearCookieValue(sessionCookieName()));
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  logWebSecurityEvent('oidc.logout.completed');
   const response = NextResponse.redirect(destination, 303);
   response.cookies.set(sessionCookieName(), '', clearCookieValue(sessionCookieName()));
   response.headers.set('Cache-Control', 'no-store');

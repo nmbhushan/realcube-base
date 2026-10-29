@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  clearCookieValue, getStoredWebSession, sessionCookieName,
+  clearCookieValue, getStoredWebSession, sessionCookieName, logWebSecurityEvent,
 } from '../../../../lib/server-auth';
 
 export const runtime = 'nodejs';
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     if (!session) response.cookies.set(sessionCookieName(), '', clearCookieValue(sessionCookieName()));
     return response;
   } catch {
+    logWebSecurityEvent('session.endpoint_unavailable', { reason: 'session_store_or_refresh_failed', status: 503 });
     return NextResponse.json(
       { authenticated: false, error: 'Session store is unavailable' },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },

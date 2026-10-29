@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { AdminController } from './admin.controller';
@@ -19,6 +20,7 @@ import {
   UserProjectAccess,
 } from './entities';
 import { OutboxPublisherService } from './outbox/outbox-publisher.service';
+import { RequestObservabilityInterceptor } from './observability/request-observability.interceptor';
 
 const entities = [
   AccessChangeOutbox,
@@ -46,6 +48,6 @@ const entities = [
     TypeOrmModule.forFeature(entities),
   ],
   controllers: [HealthController, PlatformInfoController, AdminController, PlatformAccessController, InvitationController, BootstrapController],
-  providers: [OutboxPublisherService],
+  providers: [OutboxPublisherService, { provide: APP_INTERCEPTOR, useClass: RequestObservabilityInterceptor }],
 })
 export class AppModule {}

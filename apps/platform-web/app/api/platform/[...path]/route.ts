@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import {
   clearCookieValue, destroyWebSession, ensureSameOriginMutation, getStoredWebSession,
-  parseCookie, sessionCookieName,
+  parseCookie, sessionCookieName, logWebSecurityEvent,
 } from '../../../../lib/server-auth';
 
 export const runtime = 'nodejs';
@@ -15,6 +15,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ message: 'Method not allowed' }, { status: 405, headers: { Allow: 'GET, POST, PUT, PATCH, DELETE' } });
   }
   if (!['GET'].includes(method) && !ensureSameOriginMutation(request)) {
+    logWebSecurityEvent('bff.mutation_rejected', { reason: 'origin_or_fetch_metadata_check_failed', status: 403 });
     return NextResponse.json({ message: 'Same-origin request required' }, { status: 403, headers: { 'Cache-Control': 'no-store' } });
   }
 
@@ -27,9 +28,11 @@ async function proxy(request: NextRequest, context: RouteContext) {
   try {
     session = await getStoredWebSession(request);
   } catch {
+    logWebSecurityEvent('bff.session_store_unavailable', { reason: 'session_lookup_or_refresh_failed', status: 503 });
     return NextResponse.json({ message: 'Session store is unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
   if (!session) {
+    logWebSecurityEvent('bff.unauthenticated_request', { status: 401 });
     const response = NextResponse.json({ message: 'Authentication required' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
     response.cookies.set(sessionCookieName(), '', clearCookieValue(sessionCookieName()));
     return response;
@@ -53,6 +56,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
     if (method !== 'GET' && method !== 'HEAD') init.body = await request.arrayBuffer();
     const upstream = await fetch(target, init);
     if (upstream.status === 401) {
+      logWebSecurityEvent('bff.upstream_auth_rejected', { status: 401 });
       const sessionId = parseCookie(request, sessionCookieName());
       await destroyWebSession(sessionId).catch(() => undefined);
       const response = NextResponse.json({ message: 'Your identity session is no longer authorized. Sign in again.' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
@@ -68,6 +72,7 @@ async function proxy(request: NextRequest, context: RouteContext) {
     const body = await upstream.arrayBuffer();
     return new NextResponse(body, { status: upstream.status, headers: responseHeaders });
   } catch {
+    logWebSecurityEvent('bff.upstream_failed', { reason: 'platform_api_unavailable_or_timeout', status: 502 });
     return NextResponse.json({ message: 'Platform API request failed' }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
 }

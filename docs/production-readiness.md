@@ -24,7 +24,9 @@
 - [ ] Review network topology, ingress/egress and IAM.
 - [ ] Add container, dependency and secret scanning.
 - [ ] Centralize logs, metrics, traces and alerts.
-- [ ] Add automated API, authentication, authorization and tenant-isolation tests; require them in CI.
+- [ ] Keep the PostgreSQL-backed tenant-isolation suite and real-JWKS JWT verification suite required in CI.
+- [ ] Configure structured-log shipping, retention/access controls and alerts for OIDC failures, Redis session-store errors, PostgreSQL readiness and 5xx rates.
+- [ ] Verify load-balancer access logs redact OIDC callback query strings and add a reviewed nonce-based CSP.
 - [ ] Monitor outbox backlog, oldest unpublished event, failures and retry counts.
 - [ ] Test load, failure, rollback and disaster recovery.
 - [ ] Complete threat modeling and penetration testing.
