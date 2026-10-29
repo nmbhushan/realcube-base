@@ -30,7 +30,7 @@ describe('OidcAccessGuard', () => {
   it('fails closed when OIDC configuration is missing', async () => {
     delete process.env.OIDC_ISSUER_URL;
     delete process.env.OIDC_JWKS_URL;
-    await expect(new OidcAccessGuard().canActivate(makeContext('Bearer token')))
+    await expect(new OidcAccessGuard({ getCurrentEntitlement: jest.fn() } as any).canActivate(makeContext('Bearer token')))
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
