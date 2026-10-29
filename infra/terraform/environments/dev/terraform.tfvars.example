@@ -6,3 +6,17 @@ enable_nat_gateway            = true
 single_nat_gateway            = true
 tagged_image_retention_count  = 50
 untagged_image_retention_days = 14
+
+# EKS is explicitly disabled by default. Enable only after remote state,
+# account permissions, private cluster connectivity and costs are reviewed.
+enable_eks                       = false
+eks_kubernetes_version           = "1.37"
+eks_cluster_admin_principal_arn  = ""
+eks_endpoint_public_access       = false
+eks_endpoint_public_access_cidrs = []
+eks_node_instance_types          = ["t3.large"]
+eks_node_min_size                = 2
+eks_node_desired_size            = 2
+eks_node_max_size                = 4
+# Set this to an existing SQS queue ARN to enable the outbox worker Pod Identity.
+eks_access_events_queue_arn = ""

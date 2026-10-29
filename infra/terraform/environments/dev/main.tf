@@ -31,3 +31,21 @@ module "ecr" {
   untagged_image_retention_days = var.untagged_image_retention_days
   tags                          = local.common_tags
 }
+
+module "eks" {
+  count  = var.enable_eks ? 1 : 0
+  source = "../../modules/eks"
+
+  name                       = "${var.project_name}-eks"
+  kubernetes_version          = var.eks_kubernetes_version
+  private_subnet_ids           = module.network.private_subnet_ids
+  cluster_admin_principal_arn  = var.eks_cluster_admin_principal_arn
+  endpoint_public_access       = var.eks_endpoint_public_access
+  endpoint_public_access_cidrs = var.eks_endpoint_public_access_cidrs
+  node_instance_types          = var.eks_node_instance_types
+  node_min_size                = var.eks_node_min_size
+  node_desired_size            = var.eks_node_desired_size
+  node_max_size                = var.eks_node_max_size
+  access_events_queue_arn      = var.eks_access_events_queue_arn
+  tags                         = local.common_tags
+}
