@@ -1,5 +1,5 @@
-import { createHash, createServer, createSign, generateKeyPairSync, randomBytes, type KeyObject } from 'node:crypto';
-import type { IncomingMessage, Server, ServerResponse } from 'node:http';
+import { createHash, createSign, generateKeyPairSync, randomBytes, type KeyObject } from 'node:crypto';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
@@ -160,7 +160,7 @@ async function handleProviderRequest(request: IncomingMessage, response: ServerR
       subject_types_supported: ['public'],
       id_token_signing_alg_values_supported: ['RS256'],
       grant_types_supported: ['authorization_code', 'refresh_token'],
-      token_endpoint_auth_methods_supported: ['client_secret_basic'],
+      token_endpoint_auth_methods_supported: ['client_secret_basic', 'client_secret_post'],
       code_challenge_methods_supported: ['S256'],
       scopes_supported: ['openid', 'email', 'profile', 'offline_access'],
     });
