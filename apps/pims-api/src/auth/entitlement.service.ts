@@ -1,5 +1,5 @@
 import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { PIMS_POOL } from '../db/database.constants';
 
 export interface CurrentEntitlement {
@@ -19,8 +19,9 @@ export class EntitlementService {
     }
 
     let result;
-    const client = await this.pool.connect();
+    let client: PoolClient | undefined;
     try {
+      client = await this.pool.connect();
       await client.query('BEGIN');
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
       result = await client.query<{
@@ -42,10 +43,10 @@ export class EntitlementService {
       );
       await client.query('COMMIT');
     } catch {
-      await client.query('ROLLBACK').catch(() => undefined);
+      if (client) await client.query('ROLLBACK').catch(() => undefined);
       throw new ServiceUnavailableException('Current PIMS entitlement could not be verified');
     } finally {
-      client.release();
+      client?.release();
     }
     const row = result.rows[0];
     if (!row) return { active: false, version: null, projectedAt: null };
