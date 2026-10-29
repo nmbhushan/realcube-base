@@ -58,6 +58,7 @@ services:
       dockerfile: apps/platform-web/Dockerfile
     environment:
       NODE_ENV: production
+      PLATFORM_ENV: ${PLATFORM_ENV:-local}
       PLATFORM_WEB_BASE_URL: ${PLATFORM_WEB_BASE_URL:-http://localhost:3000}
       PLATFORM_API_INTERNAL_URL: http://platform-api:3001
       REDIS_URL: ${REDIS_URL:-redis://redis:6379}

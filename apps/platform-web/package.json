@@ -6,7 +6,8 @@
     "dev": "next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:production-config": "node --test scripts/production-preflight.test.mjs"
   },
   "dependencies": {
     "next": "^15.2.0",
