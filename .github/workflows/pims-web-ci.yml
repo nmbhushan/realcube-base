@@ -25,10 +25,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: apps/pims-web/package.json
       - run: npm install --no-audit --no-fund
       - run: npm run test
       - run: npm run build
       - name: Build container image
-        run: docker build -f Dockerfile -t realcube-pims-web:ci ../..
+        run: docker build -f apps/pims-web/Dockerfile -t realcube-pims-web:ci .
