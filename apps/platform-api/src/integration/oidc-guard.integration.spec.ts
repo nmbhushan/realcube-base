@@ -12,7 +12,7 @@ describe('OIDC access guard with a real JWKS endpoint', () => {
   let issuer: string;
   let jwksUrl: string;
   let privateKey: KeyLike;
-  let publicJwk: Record<string, unknown>;
+  let publicJwk: Awaited<ReturnType<typeof exportJWK>>;
   let guard: OidcAccessGuard;
   const previous = {
     issuer: process.env.OIDC_ISSUER_URL,
