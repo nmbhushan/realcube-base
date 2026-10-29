@@ -15,7 +15,7 @@ Creates a private-by-default EKS control plane and managed worker node group wit
 - An optional outbox-worker Pod Identity association grants only `sqs:SendMessage` to one supplied SQS queue ARN.
 - An optional dedicated Pod Identity association can grant `AmazonEKS_CNI_Policy` to `kube-system/aws-node`, independent of the node role.
 
-CNI identity is a two-stage migration. First set `eks_enable_vpc_cni_pod_identity=true` while keeping `eks_remove_node_cni_policy=false`; verify association, node readiness and CNI health in staging. Only in a separate approved apply should `eks_remove_node_cni_policy=true` and `eks_approve_vpc_cni_policy_cutover=true` be set. See [the VPC CNI identity runbook](../../../docs/eks-vpc-cni-pod-identity-runbook.md).
+CNI identity is a two-stage migration. First set `eks_enable_vpc_cni_pod_identity=true` while keeping `eks_remove_node_cni_policy=false`; verify association, node readiness and CNI health in staging. Only in a separate approved apply should `eks_remove_node_cni_policy=true` and `eks_approve_vpc_cni_policy_cutover=true` be set. See [the VPC CNI identity runbook](../../../../docs/eks-vpc-cni-pod-identity-runbook.md).
 
 ## Use
 
