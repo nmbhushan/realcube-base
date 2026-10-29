@@ -46,6 +46,9 @@ module "eks" {
   node_min_size                = var.eks_node_min_size
   node_desired_size            = var.eks_node_desired_size
   node_max_size                = var.eks_node_max_size
-  access_events_queue_arn      = var.eks_access_events_queue_arn
+  access_events_queue_arn          = var.eks_access_events_queue_arn
+  enable_vpc_cni_pod_identity      = var.eks_enable_vpc_cni_pod_identity
+  remove_node_cni_policy           = var.eks_remove_node_cni_policy
+  approve_vpc_cni_policy_cutover   = var.eks_approve_vpc_cni_policy_cutover
   tags                         = local.common_tags
 }
