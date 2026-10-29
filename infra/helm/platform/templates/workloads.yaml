@@ -55,7 +55,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: api
-          image: "{{ .Values.api.image.repository }}:{{ .Values.api.image.tag }}"
+          image: {{ include "enterprise-platform.image" .Values.api.image | quote }}
           ports: [{ name: http, containerPort: {{ .Values.api.port }} }]
           env:
             - { name: NODE_ENV, value: production }
@@ -123,7 +123,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: frontend
-          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          image: {{ include "enterprise-platform.image" .Values.frontend.image | quote }}
           ports: [{ name: http, containerPort: {{ .Values.frontend.port }} }]
           env:
             - { name: NODE_ENV, value: production }
@@ -177,7 +177,7 @@ spec:
         seccompProfile: { type: RuntimeDefault }
       containers:
         - name: outbox-worker
-          image: "{{ .Values.worker.image.repository }}:{{ .Values.worker.image.tag }}"
+          image: {{ include "enterprise-platform.image" .Values.worker.image | quote }}
           command: ["node", "dist/outbox/worker.main.js"]
           env:
             - { name: NODE_ENV, value: production }

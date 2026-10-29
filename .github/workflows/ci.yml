@@ -97,3 +97,18 @@ jobs:
             echo "Expected internet-facing ingress without WAF to fail template validation"
             exit 1
           fi
+      - name: Validate release script syntax
+        run: bash -n scripts/deploy-platform.sh
+      - name: Verify immutable digest image rendering
+        shell: bash
+        run: |
+          IMAGE_DIGEST=sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          helm template enterprise-platform infra/helm/platform \
+            --set-string frontend.image.repository=example.com/realcube/platform-frontend \
+            --set-string frontend.image.digest="${IMAGE_DIGEST}" \
+            --set-string frontend.image.tag= \
+            --set-string api.image.repository=example.com/realcube/platform-api \
+            --set-string api.image.digest="${IMAGE_DIGEST}" \
+            --set-string api.image.tag= > /tmp/platform-digest-rendered.yaml
+          grep -Fq "image: \"example.com/realcube/platform-api@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
+          grep -Fq "image: \"example.com/realcube/platform-frontend@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml

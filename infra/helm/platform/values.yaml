@@ -5,6 +5,7 @@ frontend:
   image:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-frontend
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
+    digest: ""
   replicas: 2
   rollout:
     maxSurge: 1
@@ -26,6 +27,7 @@ api:
   image:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
+    digest: ""
   replicas: 2
   rollout:
     maxSurge: 1
@@ -48,6 +50,7 @@ worker:
   image:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
+    digest: ""
   replicas: 1
   envFromSecretName: enterprise-platform-worker-env
   queueUrl: ""

@@ -119,3 +119,8 @@ The production frontend image runs a fail-fast environment preflight before star
 The Helm chart now separates startup, liveness and readiness checks for the API and frontend. API readiness depends on PostgreSQL; frontend readiness verifies Redis, while liveness remains independent of external stores. Replicated workloads use zero-unavailable rolling updates, and PodDisruptionBudgets protect one replica during voluntary disruptions. CI runs Helm lint and renders the chart with non-placeholder test image names.
 
 These safeguards validate manifests and rollout intent; validate capacity, ingress/network paths, and rollback behavior in a non-production EKS cluster before production deployment.
+
+
+## Immutable-image releases
+
+The Helm chart supports image digests in addition to tags. For a controlled deployment, use [the Platform release runbook](docs/platform-release-runbook.md) and `scripts/deploy-platform.sh`. The script requires an explicit Kubernetes context and SHA-256-pinned API/frontend images, waits for both deployments, checks frontend liveness/readiness over HTTPS, and attempts recovery if post-deployment checks fail. Rehearse it in non-production EKS first; it does not deploy infrastructure or reverse database migrations.

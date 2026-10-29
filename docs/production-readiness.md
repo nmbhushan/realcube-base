@@ -24,7 +24,7 @@
 ## Delivery and operations
 - [ ] Configure Terraform remote state and locking.
 - [ ] Review network topology, ingress/egress and IAM.
-- [ ] Add container, dependency and secret scanning.
+- [ ] Add container, dependency and secret scanning. Pin release images by SHA-256 digest and rehearse the guarded Helm deployment/rollback workflow in non-production EKS (see [Platform release runbook](platform-release-runbook.md)).
 - [ ] Centralize logs, metrics, traces and alerts.
 - [ ] Keep the PostgreSQL-backed tenant-isolation suite and real-JWKS JWT verification suite required in CI.
 - [ ] Configure structured-log shipping, retention/access controls and alerts for OIDC failures, Redis session-store errors, PostgreSQL readiness and 5xx rates.
