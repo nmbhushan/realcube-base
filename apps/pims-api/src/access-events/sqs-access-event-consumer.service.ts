@@ -68,6 +68,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
         VisibilityTimeout: 45,
         AttributeNames: ['ApproximateReceiveCount'],
       }));
+      await this.pool.query('UPDATE pims_access_event_consumer_state SET updated_at = now() WHERE id = 1');
       for (const message of response.Messages ?? []) {
         try {
           await this.processMessage(message);
@@ -129,18 +130,19 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
   private async applyEvent(event: PlatformAccessEvent): Promise<void> {
     const payload = event.payload;
     const version = String(payload.entitlementVersion);
-    await this.pool.query('BEGIN');
+    const client = await this.pool.connect();
     try {
-      const duplicate = await this.pool.query(
+      await client.query('BEGIN');
+      const duplicate = await client.query(
         'SELECT 1 FROM pims_processed_access_events WHERE event_id = $1',
         [event.eventId],
       );
       if (duplicate.rowCount) {
-        await this.pool.query('COMMIT');
+        await client.query('COMMIT');
         return;
       }
 
-      await this.pool.query(
+      await client.query(
         `INSERT INTO pims_entitlement_projection
            (oidc_issuer, oidc_subject, tenant_id, project_code, entitlement_status,
             entitlement_version, source_event_id, source_occurred_at, projected_at)
@@ -154,18 +156,20 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
          WHERE pims_entitlement_projection.entitlement_version < EXCLUDED.entitlement_version`,
         [payload.oidcIssuer, payload.oidcSubject, payload.tenantId, payload.status, version, event.eventId, event.occurredAt],
       );
-      await this.pool.query(
+      await client.query(
         'INSERT INTO pims_processed_access_events (event_id, event_type) VALUES ($1, $2)',
         [event.eventId, event.eventType],
       );
-      await this.pool.query(
+      await client.query(
         'UPDATE pims_access_event_consumer_state SET last_success_at = now(), last_event_id = $1, updated_at = now() WHERE id = 1',
         [event.eventId],
       );
-      await this.pool.query('COMMIT');
+      await client.query('COMMIT');
     } catch (error) {
-      await this.pool.query('ROLLBACK').catch(() => undefined);
+      await client.query('ROLLBACK').catch(() => undefined);
       throw error;
+    } finally {
+      client.release();
     }
   }
 }
