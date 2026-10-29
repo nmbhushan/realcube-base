@@ -129,3 +129,10 @@ The Helm chart supports image digests in addition to tags. For a controlled depl
 ## EKS infrastructure foundation
 
 The Terraform module provides an opt-in private EKS control plane and managed node group, explicit cluster-admin access entries, encrypted Kubernetes Secrets, control-plane logging, and optional Pod Identity for the outbox worker, VPC CNI, and AWS Load Balancer Controller. CNI identity remains staged: retain node-role permissions until the dedicated `kube-system/aws-node` association is verified, then remove them only through a separate approved apply. The controller IAM/Pod Identity and regional WAFv2 Web ACL are opt-in; the controller Helm chart is separately pinned and installed from a private operator path. EKS remains disabled by default and CI never provisions AWS resources. Follow [the EKS foundation runbook](docs/eks-foundation-runbook.md), [the VPC CNI identity runbook](docs/eks-vpc-cni-pod-identity-runbook.md), [the ALB Controller and WAF runbook](docs/alb-controller-waf-runbook.md), and remote-state instructions before infrastructure work.
+
+
+## PIMS pilot API foundation
+
+The first pilot API increment is under `apps/pims-api`. It provides OIDC JWT validation, exact PIMS permission checks, tenant-scoped work-item endpoints, a dedicated PIMS PostgreSQL schema with forced row-level security, and a separate local Docker Compose database. See [the PIMS pilot runbook](docs/pims-pilot-runbook.md).
+
+This does not complete the business-project pilot: the control-plane entitlement-to-token/projection contract, PIMS Next.js frontend, PostgreSQL tenant-isolation integration suite and actual identity-provider/revocation verification are still required. Do not deploy the scaffold to production before those acceptance criteria are met.
