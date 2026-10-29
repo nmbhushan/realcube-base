@@ -11,6 +11,7 @@ services:
       - platform_pgdata:/var/lib/postgresql/data
       - ../database/platform/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
       - ../database/platform/002_admin_bootstrap_outbox.sql:/docker-entrypoint-initdb.d/002_admin_bootstrap_outbox.sql:ro
+      - ../database/platform/003_platform_admin_workflows.sql:/docker-entrypoint-initdb.d/003_platform_admin_workflows.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workspace} -d ${PLATFORM_DB_NAME:-platform_db}"]
       interval: 10s
