@@ -10,6 +10,8 @@ frontend:
   envFromSecretName: enterprise-platform-web-env
   apiInternalUrl: http://platform-api:3001
   sessionCookieSecure: true
+  # Must be overwritten/normalized by the configured ingress. AWS ALB appends the client IP to X-Forwarded-For.
+  rateLimitClientIpHeader: x-forwarded-for
   resources:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }

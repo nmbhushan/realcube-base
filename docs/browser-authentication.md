@@ -54,3 +54,10 @@ Redis enforces atomic fixed-window limits across web replicas. Defaults: 10 sign
 Run `npm test` from `apps/platform-web`. The `lib/oidc-auth-flow.e2e.test.ts` suite runs the real Next.js route handlers against a local test OpenID Provider and an in-memory Redis test double. It verifies authorization-code + PKCE, state and nonce validation, signed ID-token verification against a discovered JWKS endpoint, server-side session creation, refresh-token grant, replay rejection, cross-origin logout rejection, and OIDC end-session redirection. The test provider and its signing key exist only for the test process; no external identity provider or credentials are used.
 
 The test is a repeatable protocol-flow integration test, not evidence of compatibility with the organization's selected IdP. Before rollout, repeat the smoke test with a non-production app registration on the actual IdP and confirm its supported client authentication method, scopes/resource audience, claims mapping, refresh-token policy and RP-initiated logout behavior. Do not use production identity credentials in automated CI.
+
+
+## Production container preflight
+
+The production frontend Docker image sets `PLATFORM_ENV=production` and runs a preflight validation before it starts Next.js. This fails startup if required public HTTPS origin/callback/logout URLs, secure cookies, TLS Redis, OIDC client/issuer/JWKS/audience values, API service URL or ingress-controlled rate-limit header are missing or invalid. It reports only variable names and validation messages, never configuration values.
+
+For Helm, the frontend's `enterprise-platform-web-env` Secret must include `PLATFORM_WEB_BASE_URL`, `REDIS_URL` using `rediss://`, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`, `OIDC_POST_LOGOUT_REDIRECT_URI`, `OIDC_JWKS_URL` and `OIDC_AUDIENCE`. The chart explicitly configures `PLATFORM_API_INTERNAL_URL`, `SESSION_COOKIE_SECURE` and `RATE_LIMIT_CLIENT_IP_HEADER`. The local Compose stack sets `PLATFORM_ENV=local` and skips the production-only preflight.

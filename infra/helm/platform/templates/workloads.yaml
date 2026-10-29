@@ -100,6 +100,8 @@ spec:
           ports: [{ name: http, containerPort: {{ .Values.frontend.port }} }]
           env:
             - { name: NODE_ENV, value: production }
+            - { name: PLATFORM_ENV, value: production }
+            - { name: RATE_LIMIT_CLIENT_IP_HEADER, value: {{ .Values.frontend.rateLimitClientIpHeader | quote }} }
             - { name: PLATFORM_API_INTERNAL_URL, value: {{ .Values.frontend.apiInternalUrl | quote }} }
             - { name: SESSION_COOKIE_SECURE, value: "{{ .Values.frontend.sessionCookieSecure }}" }
           {{- with .Values.frontend.envFromSecretName }}
