@@ -108,26 +108,22 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
     try { parsed = JSON.parse(body); } catch { throw new Error('Invalid access event JSON'); }
     if (!parsed || typeof parsed !== 'object') throw new Error('Invalid access event');
     const event = parsed as Partial<PlatformAccessEvent>;
-    const payload = event.payload;
     if (
       typeof event.eventId !== 'string' ||
       !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(event.eventId) ||
       typeof event.eventType !== 'string' ||
       typeof event.occurredAt !== 'string' ||
-      !payload ||
-      typeof payload.tenantId !== 'string' ||
-      typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
-      typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
-      (payload.status !== 'granted' && payload.status !== 'revoked') ||
-      event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
-      !/^\d+$/.test(String(payload.entitlementVersion))
+      !event.payload || typeof event.payload !== 'object'
     ) {
       throw new Error('Access event envelope is invalid');
     }
-    // The Platform queue is shared across projects and event types. Consume irrelevant events
-    // without applying them so they cannot poison the PIMS projection.
+
+    // Platform publishes several event families and projects to the shared queue.
+    // Valid but irrelevant events must be acknowledged rather than poison the PIMS consumer.
     if (!event.eventType.startsWith('platform.project_access.')) return null;
+    const payload = event.payload;
     if (payload.projectCode !== 'PIMS') return null;
+
     if (
       typeof payload.tenantId !== 'string' ||
       typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
@@ -135,7 +131,9 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       (payload.status !== 'granted' && payload.status !== 'revoked') ||
       event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
       !/^\\d+$/.test(String(payload.entitlementVersion))
-    ) throw new Error('PIMS access event does not match the entitlement contract');
+    ) {
+      throw new Error('PIMS access event does not match the entitlement contract');
+    }
     const version = BigInt(String(payload.entitlementVersion));
     if (version < 1n) throw new Error('Invalid entitlement version');
     const date = new Date(event.occurredAt);
