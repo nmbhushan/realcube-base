@@ -41,3 +41,19 @@ The frontend image runs `scripts/production-preflight.mjs` before starting Next.
 The Helm frontend deployment sets `PLATFORM_ENV=production` and defaults the client-IP header to `x-forwarded-for` for an AWS ALB ingress. Confirm the actual ingress overwrites/appends this header as expected, and ensure the frontend Service is private behind the trusted ingress. Supply the actual origin, issuer, client credentials, JWKS URL, API audience, exact callback/logout URLs, and TLS Redis URL via the configured Kubernetes secret. The local Compose file sets `PLATFORM_ENV=local`, so its disposable non-TLS Redis service can still be used for local development.
 
 CI runs the preflight validator's Node test suite. This static/startup validation is not a provider connectivity test and does not replace the selected IdP smoke test.
+
+
+## Kubernetes rollout and health gates
+
+The Helm chart configures startup, readiness and liveness probes independently for the API and frontend. API readiness checks PostgreSQL; frontend readiness checks the Redis session store. Liveness checks do not depend on those external stores, avoiding restart loops during dependency outages. Startup probes allow up to 150 seconds for containers to initialize before liveness takes over.
+
+Both replicated web workloads use rolling updates with `maxUnavailable: 0`, one surge replica by default, readiness stabilization, a 10-minute progress deadline and five retained revisions. PodDisruptionBudgets are rendered only when the configured replica count is at least two, and keep one API/frontend pod available during voluntary disruptions. Tune resource requests, probe thresholds and rollout settings against actual load and cluster capacity before release.
+
+CI lints and renders the Helm chart, and asserts the readiness probes, zero-unavailable rollout policy and disruption budgets are present. This validates templates, not an actual cluster deployment: still perform a canary rollout and rollback drill in a non-production EKS environment.
+
+
+## Frontend ingress
+
+The chart always creates a private `ClusterIP` Service for the frontend and leaves ALB Ingress disabled by default. To enable it, set `ingress.enabled=true`, supply the real hostname and ACM certificate ARN, and verify the AWS Load Balancer Controller, subnet routing, ingress security groups, WAF and TLS policy in the target account. The chart enforces a WAFv2 ACL ARN for `internet-facing` ingress. The Ingress exposes only the frontend/BFF; the Platform API stays behind its ClusterIP Service.
+
+ALB target health checks call `/api/health/ready`, which verifies Redis is responding. This prevents the load balancer from routing requests to a frontend that cannot manage its server-side sessions. For an internal ALB, use private subnets and inbound rules limited to approved networks. Public ingress requires a separate security review; do not enable it merely to make a demo URL reachable.

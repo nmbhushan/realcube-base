@@ -112,3 +112,10 @@ The current unit tests cover OIDC fail-closed behavior, database-backed administ
 The web test suite includes a local test identity provider that runs the actual Next.js auth route handlers through authorization-code + PKCE, ID-token validation, Redis-backed session creation, refresh, replay/mismatched-state rejection, and RP-initiated logout. This proves protocol flow against the local provider implementation; still run the production-readiness checklist against the actual chosen identity provider.
 
 The production frontend image runs a fail-fast environment preflight before starting Next.js when `PLATFORM_ENV=production`. The preflight validates HTTPS origins, exact callback/logout URLs, Secure cookies, TLS Redis, OIDC metadata, a non-loopback API target, and the trusted ingress header without printing secret values. CI unit-tests this validator; see [docs/production-readiness.md](docs/production-readiness.md) for deployment requirements.
+
+
+### Kubernetes rollout safeguards
+
+The Helm chart now separates startup, liveness and readiness checks for the API and frontend. API readiness depends on PostgreSQL; frontend readiness verifies Redis, while liveness remains independent of external stores. Replicated workloads use zero-unavailable rolling updates, and PodDisruptionBudgets protect one replica during voluntary disruptions. CI runs Helm lint and renders the chart with non-placeholder test image names.
+
+These safeguards validate manifests and rollout intent; validate capacity, ingress/network paths, and rollback behavior in a non-production EKS cluster before production deployment.

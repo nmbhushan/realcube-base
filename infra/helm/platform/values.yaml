@@ -6,6 +6,12 @@ frontend:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-frontend
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
+  rollout:
+    maxSurge: 1
+    maxUnavailable: 0
+    minReadySeconds: 5
+    revisionHistoryLimit: 5
+    progressDeadlineSeconds: 600
   port: 3000
   envFromSecretName: enterprise-platform-web-env
   apiInternalUrl: http://platform-api:3001
@@ -21,6 +27,12 @@ api:
     repository: REPLACE_WITH_ECR_REPOSITORY/platform-api
     tag: "REPLACE_WITH_IMMUTABLE_TAG"
   replicas: 2
+  rollout:
+    maxSurge: 1
+    maxUnavailable: 0
+    minReadySeconds: 5
+    revisionHistoryLimit: 5
+    progressDeadlineSeconds: 600
   port: 3001
   envFromSecretName: enterprise-platform-api-env
   resources:
@@ -46,8 +58,13 @@ worker:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
 
-# Configure ingress only after TLS, WAF, network and security review.
+# Ingress is intentionally disabled until TLS, WAF, network and security review is complete.
 ingress:
   enabled: false
   className: alb
-  host: platform.example.com
+  scheme: internal
+  host: ""
+  certificateArn: ""
+  wafAclArn: ""
+  securityGroups: ""
+  subnets: ""

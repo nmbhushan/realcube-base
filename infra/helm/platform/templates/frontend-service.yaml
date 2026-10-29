@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: platform-frontend
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: enterprise-workspace
+spec:
+  type: ClusterIP
+  selector:
+    app: platform-frontend
+  ports:
+    - name: http
+      port: {{ .Values.frontend.port }}
+      targetPort: http
