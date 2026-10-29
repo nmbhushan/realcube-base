@@ -20,3 +20,11 @@ eks_node_desired_size            = 2
 eks_node_max_size                = 4
 # Set this to an existing SQS queue ARN to enable the outbox worker Pod Identity.
 eks_access_events_queue_arn = ""
+
+# VPC CNI identity rollout is deliberately staged:
+# 1) enable identity and keep the node-role CNI policy attached;
+# 2) validate it in staging;
+# 3) only then set remove=true and approve=true in your local, untracked tfvars.
+eks_enable_vpc_cni_pod_identity    = false
+eks_remove_node_cni_policy         = false
+eks_approve_vpc_cni_policy_cutover = false
