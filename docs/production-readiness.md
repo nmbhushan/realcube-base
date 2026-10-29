@@ -2,12 +2,14 @@
 
 ## Identity and access
 - [ ] Configure OIDC issuer, audience, JWKS URL, callback and logout URLs.
+- [ ] Replace the development bearer-token entry field with the reviewed production authorization-code/session (or BFF) flow.
 - [ ] Implement secure login/session lifecycle and error handling.
 - [ ] Verify the one-time bootstrap runbook against the chosen OIDC provider; rotate/remove bootstrap secrets immediately after use.
 - [ ] Test database-managed administrator grants, last-admin protection, and disabled/replayed bootstrap attempts.
 - [ ] Implement entitlement, roles/permissions and tenant guards.
 - [ ] Define and test access-revocation SLA.
-- [ ] Audit user, tenant, entitlement and role changes.
+- [ ] Audit user, tenant, invitation, entitlement, Platform admin and role changes.
+- [ ] Configure and test approved invitation email delivery, abuse/rate limits, expiry handling and link-redaction policies.
 
 ## Data
 - [ ] Replace schema initialization with versioned migration tooling for all environments.

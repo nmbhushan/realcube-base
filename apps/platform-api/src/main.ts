@@ -12,7 +12,18 @@ async function bootstrap(): Promise<void> {
     forbidNonWhitelisted: true,
     transform: true,
   }));
-  // CORS, security headers, rate limiting and OIDC client configuration are environment-specific.
+  // Browser origins must be explicitly allowlisted; never use a wildcard for this admin API.
+  const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'Accept'],
+    credentials: false,
+    maxAge: 600,
+  });
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port, '0.0.0.0');
 }

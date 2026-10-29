@@ -6,3 +6,4 @@ export { Project } from './project.entity';
 export { Tenant } from './tenant.entity';
 export { TenantMembership } from './tenant-membership.entity';
 export { UserProjectAccess } from './user-project-access.entity';
+export { PlatformUserInvitation } from './platform-user-invitation.entity';

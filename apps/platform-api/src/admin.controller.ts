@@ -2,11 +2,11 @@ import {
   BadRequestException, ConflictException, Controller, Get, NotFoundException, Post, Body, Query,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
-import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, IsUUID, MaxLength } from 'class-validator';
 import type { JWTPayload } from 'jose';
 import { CurrentPrincipal, RequirePermission } from './auth/auth.decorators';
 import { assertActiveTenantMembership } from './tenant-membership.policy';
-import { AuditLog, PlatformUser, Project, Tenant, TenantMembership, UserProjectAccess } from './entities';
+import { AccessChangeOutbox, AuditLog, PlatformUser, Project, Tenant, TenantMembership, UserProjectAccess } from './entities';
 
 class CreateTenantDto {
   @IsString() @IsNotEmpty() @MaxLength(100)
@@ -14,20 +14,6 @@ class CreateTenantDto {
 
   @IsString() @IsNotEmpty() @MaxLength(200)
   name!: string;
-}
-
-class CreateUserProfileDto {
-  @IsUUID()
-  tenantId!: string;
-
-  @IsString() @IsNotEmpty() @MaxLength(255)
-  identitySubject!: string;
-
-  @IsOptional() @IsEmail() @MaxLength(320)
-  email?: string;
-
-  @IsOptional() @IsString() @MaxLength(200)
-  displayName?: string;
 }
 
 class SetProjectAccessDto {
@@ -84,6 +70,13 @@ export class AdminController {
         targetId: tenant.id,
         details: { externalKey: tenant.externalKey },
       });
+      await this.writeOutbox(manager, {
+        eventType: 'platform.tenant.created',
+        aggregateType: 'tenant',
+        aggregateId: tenant.id,
+        tenantId: tenant.id,
+        payload: { tenantId: tenant.id, externalKey: tenant.externalKey, name: tenant.name },
+      });
       return tenant;
     });
   }
@@ -93,57 +86,6 @@ export class AdminController {
     return this.dataSource.getRepository(PlatformUser).find({
       select: { id: true, email: true, displayName: true, status: true, createdAt: true },
       order: { createdAt: 'DESC' },
-    });
-  }
-
-  @Post('users')
-  async createUserProfile(
-    @Body() dto: CreateUserProfileDto,
-    @CurrentPrincipal() principal: JWTPayload,
-  ) {
-    if (!principal.iss || !principal.sub) {
-      throw new BadRequestException('Validated issuer and administrator subject are required');
-    }
-
-    return this.dataSource.transaction(async (manager) => {
-      const tenant = await manager.getRepository(Tenant).findOneBy({ id: dto.tenantId });
-      if (!tenant || tenant.status !== 'active') {
-        throw new NotFoundException('Active tenant not found');
-      }
-      const users = manager.getRepository(PlatformUser);
-      const existing = await users.findOneBy({
-        oidcIssuer: principal.iss!,
-        oidcSubject: dto.identitySubject,
-      });
-      if (existing) throw new ConflictException('This OIDC identity is already onboarded');
-
-      const user = await users.save(users.create({
-        oidcIssuer: principal.iss!,
-        oidcSubject: dto.identitySubject,
-        email: dto.email?.trim().toLowerCase() ?? null,
-        displayName: dto.displayName?.trim() ?? null,
-        status: 'active',
-      }));
-      await manager.getRepository(TenantMembership).save(
-        manager.getRepository(TenantMembership).create({
-          tenantId: tenant.id,
-          userId: user.id,
-          status: 'active',
-        }),
-      );
-      await this.writeAudit(manager, principal, {
-        tenantId: tenant.id,
-        action: 'user.profile_created',
-        targetType: 'user',
-        targetId: user.id,
-        details: { userId: user.id, tenantId: tenant.id },
-      });
-
-      // Do not return the OIDC subject/issuer in the API response.
-      return {
-        id: user.id, email: user.email, displayName: user.displayName,
-        status: user.status, tenantId: tenant.id,
-      };
     });
   }
 
@@ -216,6 +158,39 @@ export class AdminController {
           entitlementVersion: saved.entitlementVersion,
         },
       });
+      await this.writeOutbox(manager, {
+        eventType: dto.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked',
+        aggregateType: 'user_project_access',
+        aggregateId: `${dto.tenantId}:${dto.userId}:${projectCode}`,
+        tenantId: dto.tenantId,
+        payload: {
+          tenantId: dto.tenantId, userId: dto.userId, projectCode, status: dto.status,
+          entitlementVersion: saved.entitlementVersion,
+        },
+      });
+      if (dto.status === 'revoked') {
+        const removedRoles: Array<{ role_id: string }> = await manager.query(
+          `DELETE FROM user_project_roles
+            WHERE tenant_id = $1 AND user_id = $2 AND project_code = $3
+            RETURNING role_id`,
+          [dto.tenantId, dto.userId, projectCode],
+        );
+        for (const assignment of removedRoles) {
+          await this.writeAudit(manager, principal, {
+            tenantId: dto.tenantId, action: 'project_role.revoked_by_entitlement',
+            targetType: 'user_project_role',
+            targetId: `${dto.userId}:${projectCode}:${assignment.role_id}`,
+            details: { userId: dto.userId, projectCode, roleId: assignment.role_id, reason: 'project-access-revoked' },
+          });
+          await this.writeOutbox(manager, {
+            eventType: 'platform.project_role.revoked',
+            aggregateType: 'user_project_role',
+            aggregateId: `${dto.tenantId}:${dto.userId}:${projectCode}:${assignment.role_id}`,
+            tenantId: dto.tenantId,
+            payload: { tenantId: dto.tenantId, userId: dto.userId, projectCode, roleId: assignment.role_id, reason: 'project-access-revoked' },
+          });
+        }
+      }
       return {
         tenantId: saved.tenantId, userId: saved.userId,
         projectCode: saved.projectCode, status: saved.status,
@@ -250,5 +225,13 @@ export class AdminController {
       correlationId: null,
       details: input.details,
     }));
+  }
+
+  private async writeOutbox(
+    manager: EntityManager,
+    input: { eventType: string; aggregateType: string; aggregateId: string; tenantId: string | null; payload: Record<string, unknown> },
+  ): Promise<void> {
+    const repository = manager.getRepository(AccessChangeOutbox);
+    await repository.save(repository.create(input));
   }
 }

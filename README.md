@@ -1,6 +1,6 @@
 # RealCube Base — Enterprise Workspace Foundation
 
-Phase 1 foundation for Enterprise Platform and shared infrastructure patterns.
+Enterprise Platform and shared infrastructure foundation for the RealCube business application suite.
 
 ## Approved architecture
 
@@ -15,12 +15,12 @@ Phase 1 foundation for Enterprise Platform and shared infrastructure patterns.
 
 ## Implemented in this branch
 
-- Next.js Platform project-registry preview.
+- Responsive Next.js Platform administration console connected to protected APIs for tenants, members/invitations, project access, roles and permissions.
 - NestJS API with public health endpoints and protected admin API routes.
 - PostgreSQL persistence via TypeORM; schema synchronization is disabled.
-- Admin endpoints for project registry, tenant creation/listing, user-profile mapping/listing, entitlement listing, and granting/revoking user-project access.
+- Admin APIs for tenant creation, verified-email invitations, scoped project entitlements, tenant/project-scoped roles, permission assignment, Platform administrator grants and access-change audit/outbox events.
 - OIDC JWT validation using a configured issuer, audience and JWKS endpoint. Protected admin routes fail closed when OIDC is not configured.
-- Audit records for tenant creation, user-profile creation and access changes.
+- Transactional audit/outbox records for tenant creation, invitations, memberships, project entitlements, Platform administrator changes and project-role changes.
 - Docker Compose for local API, frontend and PostgreSQL.
 - Terraform/Helm starter files and security/operations documentation.
 
@@ -44,7 +44,7 @@ For direct host development, install dependencies in each app directory and use 
 Administrative routes require a valid OIDC access token and an **active database grant** in `platform_admin_grants`; a `platform:admin` token claim alone does not grant administrative access.
 
 For the one-time bootstrap:
-1. Apply database migrations 001 and 002.
+1. Apply database migrations 001, 002 and 003.
 2. Provision the intended first administrator in the trusted OIDC provider.
 3. Inject a random 32+ character `PLATFORM_BOOTSTRAP_SECRET` and set `PLATFORM_BOOTSTRAP_ENABLED=true` only during the bootstrap window.
 4. Generate the secret, for example with `openssl rand -base64 48`, store it only in the approved secret manager, and call `POST /api/v1/bootstrap/platform-admin` with that user's valid Bearer token and the `x-platform-bootstrap-token` header.
@@ -52,7 +52,7 @@ For the one-time bootstrap:
 
 See [docs/bootstrap-runbook.md](docs/bootstrap-runbook.md). Do not log the bootstrap header.
 
-The user-profile endpoint maps an already-provisioned OIDC subject into Platform; it does not create/invite the identity at the OIDC provider.
+User onboarding is invitation-based: the API returns a one-time token whose hash alone is stored. A recipient must authenticate with OIDC and accept using a token whose verified email matches the invitation. The Platform does not create accounts at the identity provider, and automated email delivery is not configured. See [docs/platform-admin-workflows.md](docs/platform-admin-workflows.md).
 
 ## Durable access-change events
 
@@ -70,17 +70,19 @@ Access changes, administrator grants/revocations and onboarding events are writt
 
 ## Important status
 
-This is a development scaffold, not production-ready software. OIDC provider configuration, database-managed control-plane admin grants, invitation lifecycle, complete tests, durable access-change events/outbox, hardened CI/CD, real AWS Terraform resources, alerts and disaster recovery need to be completed and verified before production use. The Terraform skeleton intentionally creates no AWS resources.
+This remains a development scaffold, not production-ready software. Tenant invitation lifecycle, Platform admin grants, scoped project roles and durable access-change outbox are implemented with unit-level coverage. Before production use, configure and verify the real OIDC provider and browser session strategy, deploy approved invite delivery and abuse controls, run end-to-end/tenant-isolation tests against PostgreSQL and the chosen identity provider, harden CI/CD, implement and review real AWS Terraform resources, and validate alerting, backup/restore and disaster recovery. The Terraform skeleton intentionally creates no AWS resources.
 
 See docs/production-readiness.md and docs/implementation-roadmap.md.
 
 ## Existing local database
 
-The Docker entrypoint initialization scripts run only on an empty PostgreSQL data volume. If you already have a local volume created before migration 002, apply the migration explicitly after backing up local data:
+The Docker entrypoint initialization scripts run only on an empty PostgreSQL data volume. If you already have a local volume created before migration 002/003, apply the missing migration(s) explicitly after backing up local data:
 
 ```bash
 docker compose --env-file .env -f docker/compose.yaml exec -T postgres \
   psql -U "$POSTGRES_USER" -d "$PLATFORM_DB_NAME" < database/platform/002_admin_bootstrap_outbox.sql
+docker compose --env-file .env -f docker/compose.yaml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$PLATFORM_DB_NAME" < database/platform/003_platform_admin_workflows.sql
 ```
 
 For production, apply versioned migrations through the approved migration job rather than the entrypoint initialization mechanism.
@@ -94,4 +96,4 @@ npm run build
 npm test
 ```
 
-The current unit tests cover OIDC fail-closed behavior, database-backed administrator permission checks, one-time bootstrap behavior, outbox publishing/retry behavior, and tenant membership scoping. They are not a replacement for end-to-end tests against a configured identity provider and PostgreSQL.
+The current unit tests cover OIDC fail-closed behavior, database-backed administrator permission checks, one-time bootstrap behavior, outbox publishing/retry, tenant membership scoping, invitation email binding and role assignment preconditions. They are not a replacement for end-to-end tests against a configured identity provider and PostgreSQL.

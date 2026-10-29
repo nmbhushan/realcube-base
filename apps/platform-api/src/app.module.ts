@@ -2,11 +2,14 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { AdminController } from './admin.controller';
+import { PlatformAccessController } from './platform-access.controller';
+import { InvitationController } from './invitation.controller';
 import { BootstrapController } from './bootstrap.controller';
 import { HealthController } from './health.controller';
 import { PlatformInfoController } from './platform-info.controller';
 import {
   AccessChangeOutbox,
+  PlatformUserInvitation,
   AuditLog,
   PlatformAdminGrant,
   PlatformUser,
@@ -19,6 +22,7 @@ import { OutboxPublisherService } from './outbox/outbox-publisher.service';
 
 const entities = [
   AccessChangeOutbox,
+  PlatformUserInvitation,
   AuditLog,
   PlatformAdminGrant,
   PlatformUser,
@@ -41,7 +45,7 @@ const entities = [
     }),
     TypeOrmModule.forFeature(entities),
   ],
-  controllers: [HealthController, PlatformInfoController, AdminController, BootstrapController],
+  controllers: [HealthController, PlatformInfoController, AdminController, PlatformAccessController, InvitationController, BootstrapController],
   providers: [OutboxPublisherService],
 })
 export class AppModule {}

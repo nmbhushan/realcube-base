@@ -24,3 +24,9 @@ Consider a secure BFF/session pattern. Use Secure, HttpOnly and appropriately sc
 
 ## Outbox
 Access-changing transactions write durable outbox records atomically with the database state and audit record. The SQS publisher uses a lease/claim query and retries failures with backoff. Delivery is at-least-once; consumers must be idempotent and deduplicate by eventId. Queue permissions should be limited to the configured queue, and the worker should use its own workload identity rather than sharing the API service account.
+
+
+## Invitation and project role lifecycle
+New tenant membership is created through a one-time invitation; callers cannot choose the invitee's OIDC subject. The token's SHA-256 hash is stored, and accepting requires an OIDC-validated `iss`/`sub` plus a provider-verified email matching the invitation. The invitation is consumed in a database transaction. Invitation URLs use URL fragments so the raw token is not included in the HTTP request path; deliver links only through an approved channel.
+
+Project roles are scoped to both tenant and project. Role assignment requires an active tenant membership, a role with the exact same scope, and a granted project entitlement. Revoking an entitlement deletes the user's project-role assignments within the same transaction and emits audit/outbox events. Consumers and project APIs must still enforce their own authorization locally.
