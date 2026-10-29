@@ -131,7 +131,7 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
       typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
       (payload.status !== 'granted' && payload.status !== 'revoked') ||
       event.eventType !== (payload.status === 'granted' ? 'platform.project_access.granted' : 'platform.project_access.revoked') ||
-      !/^\\d+$/.test(String(payload.entitlementVersion))
+      !/^\d+$/.test(String(payload.entitlementVersion))
     ) {
       throw new Error('PIMS access event does not match the entitlement contract');
     }
