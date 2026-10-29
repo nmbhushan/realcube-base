@@ -24,6 +24,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3001
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       PLATFORM_DATABASE_URL: ${PLATFORM_DATABASE_URL:?Set PLATFORM_DATABASE_URL in .env}
       DATABASE_SSL: ${DATABASE_SSL:-false}
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
