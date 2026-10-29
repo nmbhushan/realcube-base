@@ -1,18 +1,13 @@
 import {
   CanActivate,
   ExecutionContext,
-  ForbiddenException,
   Injectable,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
-import {
-  AuthenticatedRequest,
-  IS_PUBLIC_KEY,
-  REQUIRED_PERMISSION_KEY,
-} from './auth.decorators';
+import { AuthenticatedRequest, IS_PUBLIC_KEY } from './auth.decorators';
 
 @Injectable()
 export class OidcAccessGuard implements CanActivate {
@@ -27,11 +22,11 @@ export class OidcAccessGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    // Keep issuer exact; OIDC issuer identifiers are string-compared by the JWT verifier.
     const issuer = process.env.OIDC_ISSUER_URL;
     const audience = process.env.OIDC_AUDIENCE;
     const jwksUrl = process.env.OIDC_JWKS_URL;
     if (!issuer || !audience || !jwksUrl) {
+      // Fail closed. Protected routes cannot run until a trusted issuer is configured.
       throw new ServiceUnavailableException('OIDC authentication is not configured');
     }
 
@@ -51,29 +46,10 @@ export class OidcAccessGuard implements CanActivate {
       throw new UnauthorizedException('Invalid or expired access token');
     }
 
-    if (!payload.sub) throw new UnauthorizedException('Token subject is required');
-    request.user = payload;
-    this.assertRequiredPermission(context, payload);
-    return true;
-  }
-
-  private assertRequiredPermission(context: ExecutionContext, payload: JWTPayload): void {
-    const required = this.reflector.getAllAndOverride<string>(REQUIRED_PERMISSION_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
-    if (!required) return;
-
-    const claimName = process.env.OIDC_PERMISSIONS_CLAIM || 'permissions';
-    const claim = payload[claimName];
-    const permissions = Array.isArray(claim)
-      ? claim.filter((value): value is string => typeof value === 'string')
-      : typeof payload.scope === 'string'
-        ? payload.scope.split(/\s+/)
-        : [];
-
-    if (!permissions.includes(required)) {
-      throw new ForbiddenException('Missing required permission');
+    if (!payload.sub || !payload.iss) {
+      throw new UnauthorizedException('Token issuer and subject are required');
     }
+    request.user = payload;
+    return true;
   }
 }

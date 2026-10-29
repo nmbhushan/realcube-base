@@ -39,11 +39,24 @@ Protected admin routes: http://localhost:3001/api/v1/admin/*
 
 For direct host development, install dependencies in each app directory and use a host-reachable PostgreSQL URL rather than the Compose hostname postgres.
 
-## Protected API permission requirement
+## First Platform administrator
 
-Admin endpoints currently require the validated access token to contain platform:admin in the configured token permissions claim (default permissions array) or scope claim. Configure this at the trusted identity provider as the initial control-plane administrator gate. Do not trust a browser-supplied permission list. The next security increment should add database-managed Platform administrator grants, a controlled bootstrap flow, and tests for revocation.
+Administrative routes require a valid OIDC access token and an **active database grant** in `platform_admin_grants`; a `platform:admin` token claim alone does not grant administrative access.
+
+For the one-time bootstrap:
+1. Apply database migrations 001 and 002.
+2. Provision the intended first administrator in the trusted OIDC provider.
+3. Inject a random 32+ character `PLATFORM_BOOTSTRAP_SECRET` and set `PLATFORM_BOOTSTRAP_ENABLED=true` only during the bootstrap window.
+4. Generate the secret, for example with `openssl rand -base64 48`, store it only in the approved secret manager, and call `POST /api/v1/bootstrap/platform-admin` with that user's valid Bearer token and the `x-platform-bootstrap-token` header.
+5. Immediately set bootstrap disabled and remove/rotate the secret. The database state row prevents a second successful bootstrap, even if the feature flag is accidentally re-enabled.
+
+See [docs/bootstrap-runbook.md](docs/bootstrap-runbook.md). Do not log the bootstrap header.
 
 The user-profile endpoint maps an already-provisioned OIDC subject into Platform; it does not create/invite the identity at the OIDC provider.
+
+## Durable access-change events
+
+Access changes, administrator grants/revocations and onboarding events are written to `access_change_outbox` in the same transaction as the state change and audit record. A separately deployed worker can publish pending events to SQS by setting `OUTBOX_PUBLISHER_ENABLED=true`, `ACCESS_EVENTS_QUEUE_URL`, `PLATFORM_DATABASE_URL` and `AWS_REGION`. Delivery is at-least-once; consumers must deduplicate using `eventId`. See [docs/access-events.md](docs/access-events.md).
 
 ## Security rules
 
@@ -60,3 +73,25 @@ The user-profile endpoint maps an already-provisioned OIDC subject into Platform
 This is a development scaffold, not production-ready software. OIDC provider configuration, database-managed control-plane admin grants, invitation lifecycle, complete tests, durable access-change events/outbox, hardened CI/CD, real AWS Terraform resources, alerts and disaster recovery need to be completed and verified before production use. The Terraform skeleton intentionally creates no AWS resources.
 
 See docs/production-readiness.md and docs/implementation-roadmap.md.
+
+## Existing local database
+
+The Docker entrypoint initialization scripts run only on an empty PostgreSQL data volume. If you already have a local volume created before migration 002, apply the migration explicitly after backing up local data:
+
+```bash
+docker compose --env-file .env -f docker/compose.yaml exec -T postgres \
+  psql -U "$POSTGRES_USER" -d "$PLATFORM_DB_NAME" < database/platform/002_admin_bootstrap_outbox.sql
+```
+
+For production, apply versioned migrations through the approved migration job rather than the entrypoint initialization mechanism.
+
+## Run API tests
+
+```bash
+cd apps/platform-api
+npm install
+npm run build
+npm test
+```
+
+The current unit tests cover OIDC fail-closed behavior, database-backed administrator permission checks, one-time bootstrap behavior, outbox publishing/retry behavior, and tenant membership scoping. They are not a replacement for end-to-end tests against a configured identity provider and PostgreSQL.

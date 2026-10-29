@@ -3,7 +3,8 @@
 ## Identity and access
 - [ ] Configure OIDC issuer, audience, JWKS URL, callback and logout URLs.
 - [ ] Implement secure login/session lifecycle and error handling.
-- [ ] Implement database-managed Platform admin grants and a controlled bootstrap procedure.
+- [ ] Verify the one-time bootstrap runbook against the chosen OIDC provider; rotate/remove bootstrap secrets immediately after use.
+- [ ] Test database-managed administrator grants, last-admin protection, and disabled/replayed bootstrap attempts.
 - [ ] Implement entitlement, roles/permissions and tenant guards.
 - [ ] Define and test access-revocation SLA.
 - [ ] Audit user, tenant, entitlement and role changes.
@@ -20,6 +21,7 @@
 - [ ] Review network topology, ingress/egress and IAM.
 - [ ] Add container, dependency and secret scanning.
 - [ ] Centralize logs, metrics, traces and alerts.
-- [ ] Add automated API, authentication, authorization and isolation tests.
+- [ ] Add automated API, authentication, authorization and tenant-isolation tests; require them in CI.
+- [ ] Monitor outbox backlog, oldest unpublished event, failures and retry counts.
 - [ ] Test load, failure, rollback and disaster recovery.
 - [ ] Complete threat modeling and penetration testing.

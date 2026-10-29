@@ -3,8 +3,12 @@
 ## Authentication
 Protected endpoints require a Bearer token signed by the configured OIDC provider. The API verifies signature via configured JWKS URL, issuer, audience, expiry, not-before, and an explicit algorithm allowlist. The application does not implement password storage or token issuance.
 
-## Control-plane admin gate (current stage)
-Admin endpoints require the platform:admin permission in the configured token permissions claim (default permissions) or scope claim. This is an initial gate from the trusted identity provider, not the final database-managed Platform administrator model. Do not accept permissions from request bodies or frontend state. Next increment: bootstrap flow plus database-managed Platform administrator grants and revocation tests.
+## Control-plane admin gate
+Admin endpoints require an active `platform:admin` grant in `platform_admin_grants`, joined to an active Platform user identified by the exact OIDC issuer and subject. Token permission claims and frontend state do not grant Platform administrator access.
+
+The first grant can be created only through the one-time bootstrap route. It requires a valid OIDC bearer token, a random 32+ character bootstrap secret, an explicitly enabled bootstrap flag, and an incomplete singleton state row. Bootstrap and administrator grant/revoke operations use a PostgreSQL advisory lock to serialize changes; the last active administrator cannot be revoked. Disable bootstrap and remove its secret immediately after success.
+
+The current bootstrap route is authenticated by the global OIDC guard before the database permission guard bypasses its administrator check. The bypass applies only to that route and does not make it public.
 
 ## Authorization
 Every business API must locally validate tokens and enforce project entitlement, tenant membership, role/permission and resource scope. The frontend module list is not a security boundary. Derive tenant scope from validated identity and verified membership, not client input alone. Add cross-tenant and cross-project tests to CI.
@@ -17,3 +21,6 @@ Set a maximum permission-revocation delay. Use short-lived tokens, entitlement v
 
 ## Browser and service-to-service
 Consider a secure BFF/session pattern. Use Secure, HttpOnly and appropriately scoped SameSite cookies and CSRF controls where required. Do not place long-lived refresh tokens in localStorage. Use workload identities or OAuth client credentials for service-to-service calls.
+
+## Outbox
+Access-changing transactions write durable outbox records atomically with the database state and audit record. The SQS publisher uses a lease/claim query and retries failures with backoff. Delivery is at-least-once; consumers must be idempotent and deduplicate by eventId. Queue permissions should be limited to the configured queue, and the worker should use its own workload identity rather than sharing the API service account.

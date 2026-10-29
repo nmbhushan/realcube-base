@@ -10,6 +10,7 @@ services:
     volumes:
       - platform_pgdata:/var/lib/postgresql/data
       - ../database/platform/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
+      - ../database/platform/002_admin_bootstrap_outbox.sql:/docker-entrypoint-initdb.d/002_admin_bootstrap_outbox.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workspace} -d ${PLATFORM_DB_NAME:-platform_db}"]
       interval: 10s
@@ -27,7 +28,13 @@ services:
       OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-}
       OIDC_JWKS_URL: ${OIDC_JWKS_URL:-}
       OIDC_AUDIENCE: ${OIDC_AUDIENCE:-enterprise-platform-api}
+      PLATFORM_BOOTSTRAP_ENABLED: ${PLATFORM_BOOTSTRAP_ENABLED:-false}
+      PLATFORM_BOOTSTRAP_SECRET: ${PLATFORM_BOOTSTRAP_SECRET:-}
       OIDC_PERMISSIONS_CLAIM: ${OIDC_PERMISSIONS_CLAIM:-permissions}
+      OUTBOX_PUBLISHER_ENABLED: ${OUTBOX_PUBLISHER_ENABLED:-false}
+      ACCESS_EVENTS_QUEUE_URL: ${ACCESS_EVENTS_QUEUE_URL:-}
+      OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-5000}
+      AWS_REGION: ${AWS_REGION:-ap-south-1}
     ports:
       - "127.0.0.1:${PLATFORM_API_PORT:-3001}:3001"
     depends_on:

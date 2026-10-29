@@ -2,16 +2,17 @@ import {
   BadRequestException, ConflictException, Controller, Get, NotFoundException, Post, Body, Query,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
-import { IsEmail, IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsEmail, IsIn, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
 import type { JWTPayload } from 'jose';
 import { CurrentPrincipal, RequirePermission } from './auth/auth.decorators';
+import { assertActiveTenantMembership } from './tenant-membership.policy';
 import { AuditLog, PlatformUser, Project, Tenant, TenantMembership, UserProjectAccess } from './entities';
 
 class CreateTenantDto {
-  @IsString() @MaxLength(100)
+  @IsString() @IsNotEmpty() @MaxLength(100)
   externalKey!: string;
 
-  @IsString() @MaxLength(200)
+  @IsString() @IsNotEmpty() @MaxLength(200)
   name!: string;
 }
 
@@ -19,7 +20,7 @@ class CreateUserProfileDto {
   @IsUUID()
   tenantId!: string;
 
-  @IsString() @MaxLength(255)
+  @IsString() @IsNotEmpty() @MaxLength(255)
   identitySubject!: string;
 
   @IsOptional() @IsEmail() @MaxLength(320)
@@ -36,7 +37,7 @@ class SetProjectAccessDto {
   @IsUUID()
   userId!: string;
 
-  @IsString() @MaxLength(32)
+  @IsString() @IsNotEmpty() @MaxLength(32)
   projectCode!: string;
 
   @IsIn(['granted', 'revoked'])
@@ -101,6 +102,7 @@ export class AdminController {
       throw new BadRequestException('Validated issuer and administrator subject are required');
     }
 
+    if (!dto.externalKey.trim() || !dto.name.trim()) throw new BadRequestException('Tenant key and name cannot be blank');
     return this.dataSource.transaction(async (manager) => {
       const tenant = await manager.getRepository(Tenant).findOneBy({ id: dto.tenantId });
       if (!tenant || tenant.status !== 'active') {
@@ -169,6 +171,7 @@ export class AdminController {
     @CurrentPrincipal() principal: JWTPayload,
   ) {
     const projectCode = dto.projectCode.trim().toUpperCase();
+    if (!projectCode) throw new BadRequestException('projectCode cannot be blank');
     return this.dataSource.transaction(async (manager) => {
       const tenant = await manager.getRepository(Tenant).findOneBy({ id: dto.tenantId });
       if (!tenant || tenant.status !== 'active') throw new NotFoundException('Active tenant not found');

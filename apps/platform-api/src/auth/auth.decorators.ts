@@ -4,8 +4,12 @@ import type { Request } from 'express';
 
 export const IS_PUBLIC_KEY = 'enterpriseWorkspace:isPublic';
 export const REQUIRED_PERMISSION_KEY = 'enterpriseWorkspace:requiredPermission';
+export const BOOTSTRAP_ROUTE_KEY = 'enterpriseWorkspace:bootstrapRoute';
+
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
-export const RequirePermission = (permission: string) => SetMetadata(REQUIRED_PERMISSION_KEY, permission);
+export const BootstrapRoute = () => SetMetadata(BOOTSTRAP_ROUTE_KEY, true);
+export const RequirePermission = (permission: string) =>
+  SetMetadata(REQUIRED_PERMISSION_KEY, permission);
 
 export interface AuthenticatedRequest extends Request {
   user?: JWTPayload;
