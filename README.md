@@ -124,3 +124,8 @@ These safeguards validate manifests and rollout intent; validate capacity, ingre
 ## Immutable-image releases
 
 The Helm chart supports image digests in addition to tags. For a controlled deployment, use [the Platform release runbook](docs/platform-release-runbook.md) and `scripts/deploy-platform.sh`. The script requires an explicit Kubernetes context and SHA-256-pinned API/frontend images, waits for both deployments, checks frontend liveness/readiness over HTTPS, and attempts recovery if post-deployment checks fail. Rehearse it in non-production EKS first; it does not deploy infrastructure or reverse database migrations.
+
+
+## EKS infrastructure foundation
+
+The Terraform module provides an opt-in private EKS control plane and managed node group, explicit cluster-admin access entries, encrypted Kubernetes Secrets, control-plane logging, and optional SQS-scoped EKS Pod Identity for the outbox worker. It remains disabled by default and CI does not provision AWS resources. Follow [the EKS foundation runbook](docs/eks-foundation-runbook.md) after the S3 remote-state bootstrap has been verified.

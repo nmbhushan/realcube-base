@@ -3,9 +3,9 @@
 ## Stage 1 — Foundation
 1. Confirm OIDC provider, tenant model and AWS account strategy.
 2. Protect the repository and configure CI.
-3. Build reviewed Terraform modules and secure remote state. Network/ECR modules and the remote-state bootstrap/migration configuration are implemented; bucket provisioning and migration still require approved manual execution.
+3. Build reviewed Terraform modules and secure remote state. Network/ECR modules, remote-state bootstrap/migration configuration, and the EKS module are implemented; actual state migration and infrastructure provisioning require an approved operator.
 4. Establish ECR, Docker build and deployment standards. Immutable image references and a guarded Helm rollout/rollback script are implemented; end-to-end release rehearsal remains outstanding.
-5. Implement and rehearse the non-production EKS baseline before production deployment.
+5. Deploy and rehearse the opt-in private EKS baseline in non-production before production deployment.
 
 ## Stage 2 — Platform API
 1. Implement persistence for tenants, users, projects, entitlements, roles, permissions and audit.

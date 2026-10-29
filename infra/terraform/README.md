@@ -1,35 +1,26 @@
 # Terraform infrastructure foundation
 
-Terraform now contains reusable AWS network/ECR modules, a development root, and a dedicated root for bootstrapping protected S3 remote state. These configurations describe AWS resources; CI validates them without AWS credentials and never creates or changes infrastructure.
+Terraform now contains reusable AWS network/ECR modules, a development root, a protected S3 remote-state bootstrap, and a private-by-default EKS module. CI validates these configurations without AWS credentials and never applies infrastructure.
 
-## Network module
+## Network and ECR
 
-- VPC with DNS support and DNS hostnames.
-- Public and private /24 subnets in two Availability Zones by default.
-- Internet gateway and public subnet routes.
-- NAT gateway egress for private subnets, with a single-NAT development default.
-- Separate private route tables and Kubernetes load-balancer discovery tags.
-- No default public IP assignment for subnets.
+The network module creates a DNS-enabled VPC with public and private /24 subnets across two Availability Zones by default, an internet gateway, private routing and NAT egress. Private subnets do not auto-assign public IP addresses. The single NAT default reduces development cost but is not AZ-resilient.
 
-The shared single NAT gateway default reduces development costs but is not Availability Zone resilient. For production, decide between one NAT gateway per AZ and a reviewed VPC-endpoint strategy, including cost and failure-mode analysis. Public subnets are intended for approved edge components; application workloads should use private subnets.
-
-## ECR module
-
-- Separate API, frontend and outbox-worker repositories.
-- Immutable image tags to prevent a tag from being overwritten.
-- Image scanning on push and encryption at rest with AES-256.
-- Lifecycle policy expiring untagged images after 14 days and keeping the newest 50 tagged images by default.
-- force_delete is false so Terraform will not silently delete non-empty repositories.
+The ECR module creates API, frontend and outbox-worker repositories with immutable tags, push-time scanning, AES-256 at-rest encryption, and image lifecycle rules. Repositories use `force_delete = false`.
 
 ## Protected remote state
 
-The `bootstrap-state/` root defines a versioned S3 state bucket, customer-managed KMS encryption, Block Public Access, enforced bucket ownership, a TLS-only bucket policy and destroy protection. Environment roots use the S3 backend with `use_lockfile = true`, the S3-native lock mechanism supported by Terraform 1.10 and later; no DynamoDB table is required.
+The `bootstrap-state/` root defines a versioned S3 state bucket, customer-managed KMS encryption, Block Public Access, enforced bucket ownership, a TLS-only bucket policy and destroy protection. Environment roots use `use_lockfile = true` for S3-native locking. Follow [the Terraform state runbook](../../docs/terraform-state-runbook.md) using an approved AWS role; the configuration itself has not created the bucket or migrated state.
 
-**The templates have not provisioned the bucket.** Follow [the Terraform state bootstrap and migration runbook](../../docs/terraform-state-runbook.md) with an approved AWS role. The bootstrap root starts with local state, then migrates its state to a distinct key in the newly created bucket. Keep local state, plans and configured backend files out of Git and protect backups as sensitive artifacts.
+## EKS baseline (opt-in)
+
+The `modules/eks/` module provides a private EKS control plane and managed node group in private subnets, KMS encryption for Kubernetes Secrets, CloudWatch control-plane logs with 90-day retention, explicit EKS access entries, encrypted gp3 node disks, IMDSv2, and the Pod Identity Agent. If an existing SQS queue ARN is configured, a service-account association grants the outbox worker only `sqs:SendMessage` to that queue.
+
+The development root gates the EKS module behind `enable_eks = false`. Keep it disabled until the remote backend is verified, the account/role and cost have been approved, and a private operator access path is available. The API endpoint is private by default. Any public endpoint needs a non-empty, reviewed CIDR allow-list.
+
+See [the EKS foundation runbook](../../docs/eks-foundation-runbook.md) before planning or applying. Terraform CI does not create resources.
 
 ## Validate
-
-From the repository root:
 
     terraform fmt -check -recursive infra/terraform
     terraform -chdir=infra/terraform/bootstrap-state init -backend=false
@@ -37,10 +28,10 @@ From the repository root:
     terraform -chdir=infra/terraform/environments/dev init -backend=false
     terraform -chdir=infra/terraform/environments/dev validate
 
-CI runs these checks using Terraform 1.11.4. Validation has no AWS credentials and does not run `plan` or `apply`.
+Validation uses Terraform 1.11.4, does not authenticate to AWS, and does not run `plan` or `apply`.
 
-## Before provisioning the development network
+## Cost and production gates
 
-Once remote state has been bootstrapped and approved, review the development plan. The current defaults create a VPC, subnets, routing, one NAT gateway and ECR repositories. NAT gateways incur ongoing hourly and data-processing charges. Confirm account, region, CIDR overlap, names, tags, cost and cleanup behavior before any manual apply.
+A dev plan can create a VPC, public/private subnets, NAT gateway, ECR repositories, and (only if opted in) EKS, a managed node group, KMS key and CloudWatch log group. EKS control-plane, EC2, EBS, NAT and log charges may accrue. Review the saved plan, account, region, CIDR overlap, endpoint exposure, IAM, costs and cleanup impact before manual apply.
 
-Remaining infrastructure work includes EKS and workload identity, RDS PostgreSQL, Secrets Manager/KMS integration for application secrets, S3/SQS access, monitoring, backup and disaster-recovery/restore drills.
+Remaining work includes production-grade remote-state IAM separation, VPC CNI workload identity hardening, load-balancer controller/WAF, database/Redis/secrets integrations, backup/restore, monitoring, DR, and non-production end-to-end deployment tests.
