@@ -26,6 +26,8 @@ The PIMS API now includes a local entitlement projection and an optional SQS acc
 7. Measure actual revoke-to-deny latency. The default heartbeat limit is 60 seconds, but it is not a measured end-to-end SLA until queue delivery, consumer processing and protected API denial have been tested.
 8. Prefer a separately deployed consumer workload and role over enabling the consumer on every API replica. The implementation is disabled by default and requires a reviewed workload/IAM design.
 
+See [the standalone worker deployment guide](../apps/pims-api/worker-deployment.md) for the independent container command and workload identity requirements.
+
 ## Failure behavior
 
 - Missing projection: deny with 403.
