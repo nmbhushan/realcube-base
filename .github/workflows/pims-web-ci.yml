@@ -1,0 +1,34 @@
+name: PIMS Web CI
+on:
+  pull_request:
+    paths:
+      - "apps/pims-web/**"
+      - ".github/workflows/pims-web-ci.yml"
+  push:
+    branches: [main]
+    paths:
+      - "apps/pims-web/**"
+      - ".github/workflows/pims-web-ci.yml"
+permissions:
+  contents: read
+concurrency:
+  group: pims-web-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pims-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/pims-web/package.json
+      - run: npm install --no-audit --no-fund
+      - run: npm run test
+      - run: npm run build
+      - name: Build container image
+        run: docker build -f Dockerfile -t realcube-pims-web:ci ../..
