@@ -57,7 +57,7 @@ Use a real PostgreSQL instance with the PIMS schema and a non-production OIDC is
 ## Remaining release gates
 
 - [ ] Apply migrations in a non-production environment and verify the one-time entitlement snapshot.
-- [ ] Add PostgreSQL-backed tests for RLS and the event consumer transaction.
+- [ ] Confirm the PostgreSQL-backed RLS/revocation integration suite passes in CI and extend it to a live OIDC/SQS environment.
 - [ ] Run a real-issuer JWT verification suite in non-production CI.
 - [ ] Test queue retries, DLQ redrive, duplicate/out-of-order delivery and consumer restart.
 - [ ] Measure actual revoke-to-deny latency and approve the revocation SLA.
