@@ -51,5 +51,4 @@ module "eks" {
   remove_node_cni_policy         = var.eks_remove_node_cni_policy
   approve_vpc_cni_policy_cutover = var.eks_approve_vpc_cni_policy_cutover
   tags                           = local.common_tags
-  tags                         = local.common_tags
 }
