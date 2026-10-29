@@ -109,6 +109,11 @@ jobs:
             --set-string frontend.image.tag= \
             --set-string api.image.repository=example.com/realcube/platform-api \
             --set-string api.image.digest="${IMAGE_DIGEST}" \
-            --set-string api.image.tag= > /tmp/platform-digest-rendered.yaml
+            --set-string api.image.tag= \
+            --set worker.enabled=true \
+            --set-string worker.image.repository=example.com/realcube/platform-worker \
+            --set-string worker.image.digest="${IMAGE_DIGEST}" \
+            --set-string worker.image.tag= > /tmp/platform-digest-rendered.yaml
           grep -Fq "image: \"example.com/realcube/platform-api@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
           grep -Fq "image: \"example.com/realcube/platform-frontend@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
+          grep -Fq "image: \"example.com/realcube/platform-worker@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml

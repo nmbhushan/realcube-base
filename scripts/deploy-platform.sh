@@ -11,6 +11,7 @@ CONTEXT=""
 VALUES_FILE=""
 API_IMAGE=""
 FRONTEND_IMAGE=""
+WORKER_IMAGE=""
 SMOKE_URL=""
 TIMEOUT="10m"
 DRY_RUN="false"
@@ -29,6 +30,7 @@ Required:
   --values FILE            Environment-specific values file (keep secrets in Kubernetes Secrets)
   --api-image REF          Immutable API image reference: repository@sha256:<64 lowercase hex chars>
   --frontend-image REF     Immutable frontend image reference: repository@sha256:<64 lowercase hex chars>
+  --worker-image REF       Immutable outbox-worker image; required if worker.enabled=true
   --smoke-url URL          HTTPS frontend ingress/base URL reachable from this runner
 
 Options:
@@ -45,7 +47,7 @@ fail() {
 
 while (($#)); do
   case "$1" in
-    --release|--namespace|--context|--values|--api-image|--frontend-image|--smoke-url|--timeout)
+    --release|--namespace|--context|--values|--api-image|--frontend-image|--worker-image|--smoke-url|--timeout)
       [[ $# -ge 2 && -n "$2" ]] || fail "Missing value for $1"
       option="$1"
       value="$2"
@@ -57,6 +59,7 @@ while (($#)); do
         --values) VALUES_FILE="$value" ;;
         --api-image) API_IMAGE="$value" ;;
         --frontend-image) FRONTEND_IMAGE="$value" ;;
+        --worker-image) WORKER_IMAGE="$value" ;;
         --smoke-url) SMOKE_URL="$value" ;;
         --timeout) TIMEOUT="$value" ;;
       esac
@@ -91,6 +94,8 @@ API_REPOSITORY=""
 API_DIGEST=""
 FRONTEND_REPOSITORY=""
 FRONTEND_DIGEST=""
+WORKER_REPOSITORY=""
+WORKER_DIGEST=""
 
 parse_digest_image() {
   local image="$1"
@@ -101,15 +106,33 @@ parse_digest_image() {
   case "$label" in
     API) API_REPOSITORY="${BASH_REMATCH[1]}"; API_DIGEST="${BASH_REMATCH[2]}" ;;
     frontend) FRONTEND_REPOSITORY="${BASH_REMATCH[1]}"; FRONTEND_DIGEST="${BASH_REMATCH[2]}" ;;
+    worker) WORKER_REPOSITORY="${BASH_REMATCH[1]}"; WORKER_DIGEST="${BASH_REMATCH[2]}" ;;
   esac
 }
 
 parse_digest_image "$API_IMAGE" "API"
 parse_digest_image "$FRONTEND_IMAGE" "frontend"
+[[ -z "$WORKER_IMAGE" ]] || parse_digest_image "$WORKER_IMAGE" "worker"
 [[ -d "$CHART_DIR" ]] || fail "Helm chart not found: $CHART_DIR"
+
+WORKER_ENABLED="$(awk '
+  /^worker:[[:space:]]*$/ { in_worker=1; next }
+  in_worker && /^[^[:space:]#][^:]*:/ { in_worker=0 }
+  in_worker && /^[[:space:]]+enabled:[[:space:]]*/ {
+    sub(/^[[:space:]]*enabled:[[:space:]]*/, "")
+    sub(/[[:space:]]+#.*$/, "")
+    gsub(/[[:space:]]/, "")
+    print tolower($0)
+    exit
+  }
+' "$VALUES_FILE")"
+if [[ "$WORKER_ENABLED" == "true" && -z "$WORKER_IMAGE" ]]; then
+  fail "worker.enabled=true requires --worker-image with an immutable SHA-256 digest"
+fi
 
 # Keep credentials in pre-provisioned Kubernetes Secrets; only image refs are overridden here.
 HELM_SET_ARGS=(
+  --set-string "namespace=$NAMESPACE"
   --set-string "api.image.repository=$API_REPOSITORY"
   --set-string "api.image.digest=$API_DIGEST"
   --set-string "api.image.tag="
@@ -117,6 +140,13 @@ HELM_SET_ARGS=(
   --set-string "frontend.image.digest=$FRONTEND_DIGEST"
   --set-string "frontend.image.tag="
 )
+if [[ -n "$WORKER_IMAGE" ]]; then
+  HELM_SET_ARGS+=(
+    --set-string "worker.image.repository=$WORKER_REPOSITORY"
+    --set-string "worker.image.digest=$WORKER_DIGEST"
+    --set-string "worker.image.tag="
+  )
+fi
 
 printf 'Validating Helm chart and explicit Kubernetes context: %s\n' "$CONTEXT"
 helm lint "$CHART_DIR" --values "$VALUES_FILE" "${HELM_SET_ARGS[@]}"
@@ -137,7 +167,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-PREVIOUS_REVISION="$(helm history "$RELEASE" --namespace "$NAMESPACE" --kube-context "$CONTEXT" --max 10 --output json 2>/dev/null | jq -r 'if length > 0 then (.[-1].revision | tostring) else empty end' 2>/dev/null || true)"
+PREVIOUS_REVISION="$(helm history "$RELEASE" --namespace "$NAMESPACE" --kube-context "$CONTEXT" --max 10 --output json 2>/dev/null | jq -r '[.[] | select(.status == "deployed")] | if length > 0 then (.[-1].revision | tostring) else empty end' 2>/dev/null || true)"
 UPGRADE_SUCCEEDED="false"
 
 rollback_on_error() {

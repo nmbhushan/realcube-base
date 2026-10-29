@@ -27,7 +27,7 @@ Production deployment requires approved TLS, ingress, WAF/network configuration,
 
 ## Release command
 
-Create an environment-specific values file from the reviewed configuration. The chart values should reference pre-provisioned Kubernetes Secrets, not contain credentials directly. Image references must be in the form `registry/repository@sha256:<64 lowercase hex characters>`.
+Create an environment-specific values file from the reviewed configuration. The chart values should reference pre-provisioned Kubernetes Secrets, not contain credentials directly. Image references must be in the form `registry/repository@sha256:<64 lowercase hex characters>`. If `worker.enabled=true` in the values file, pass `--worker-image` for that workload as well; the script rejects an enabled worker without a digest-pinned image.
 
 ```bash
 chmod +x scripts/deploy-platform.sh
