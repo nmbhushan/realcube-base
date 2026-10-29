@@ -58,8 +58,13 @@ worker:
     requests: { cpu: 100m, memory: 128Mi }
     limits: { cpu: 500m, memory: 512Mi }
 
-# Configure ingress only after TLS, WAF, network and security review.
+# Ingress is intentionally disabled until TLS, WAF, network and security review is complete.
 ingress:
   enabled: false
   className: alb
-  host: platform.example.com
+  scheme: internal
+  host: ""
+  certificateArn: ""
+  wafAclArn: ""
+  securityGroups: ""
+  subnets: ""

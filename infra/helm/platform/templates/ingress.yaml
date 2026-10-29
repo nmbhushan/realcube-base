@@ -1,0 +1,48 @@
+{{- if .Values.ingress.enabled }}
+{{- $host := required "ingress.host is required when ingress.enabled=true" .Values.ingress.host }}
+{{- $certificateArn := required "ingress.certificateArn is required when ingress.enabled=true" .Values.ingress.certificateArn }}
+{{- if not (has .Values.ingress.scheme (list "internal" "internet-facing")) }}
+{{- fail "ingress.scheme must be internal or internet-facing" }}
+{{- end }}
+{{- if and (eq .Values.ingress.scheme "internet-facing") (empty .Values.ingress.wafAclArn) }}
+{{- fail "ingress.wafAclArn is required for an internet-facing Platform ingress" }}
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-frontend
+  namespace: {{ .Values.namespace }}
+  labels:
+    app.kubernetes.io/part-of: enterprise-workspace
+  annotations:
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme | quote }}
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
+    alb.ingress.kubernetes.io/certificate-arn: {{ $certificateArn | quote }}
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health/ready
+    alb.ingress.kubernetes.io/success-codes: "200"
+    alb.ingress.kubernetes.io/load-balancer-attributes: routing.http.drop_invalid_header_fields.enabled=true
+    {{- with .Values.ingress.wafAclArn }}
+    alb.ingress.kubernetes.io/wafv2-acl-arn: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.ingress.securityGroups }}
+    alb.ingress.kubernetes.io/security-groups: {{ . | quote }}
+    {{- end }}
+    {{- with .Values.ingress.subnets }}
+    alb.ingress.kubernetes.io/subnets: {{ . | quote }}
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+  rules:
+    - host: {{ $host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-frontend
+                port:
+                  number: {{ .Values.frontend.port }}
+{{- end }}
