@@ -32,3 +32,19 @@ output "vpc_cni_pod_identity_enabled" {
   description = "Whether a dedicated VPC CNI Pod Identity association is configured."
   value       = var.enable_vpc_cni_pod_identity
 }
+
+
+output "load_balancer_controller_role_arn" {
+  description = "AWS Load Balancer Controller Pod Identity role ARN, or null when disabled."
+  value       = try(aws_iam_role.load_balancer_controller[0].arn, null)
+}
+
+output "load_balancer_controller_enabled" {
+  description = "Whether the AWS Load Balancer Controller Pod Identity association is configured."
+  value       = var.enable_load_balancer_controller
+}
+
+output "platform_waf_web_acl_arn" {
+  description = "Regional WAFv2 Web ACL ARN for ALB ingress annotations, or null when disabled."
+  value       = try(aws_wafv2_web_acl.platform[0].arn, null)
+}
