@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokenSet.access_token) throw new Error('No access token returned');
     const claims = tokenSet.claims();
-    if (!claims.iss || !claims.sub) throw new Error('Validated issuer and subject claims are required');
+    if (!claims || !claims.iss || !claims.sub) throw new Error('Validated issuer and subject claims are required');
 
     const sessionId = randomBytes(32).toString('base64url');
     const now = Date.now();
