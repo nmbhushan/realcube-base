@@ -16,3 +16,8 @@ coverage/
 *.tfplan
 crash.log
 crash.*.log
+# Terraform backend config and other generated local state configuration
+backend.hcl
+*.tfbackend
+terraform.tfplan
+*.tfplan

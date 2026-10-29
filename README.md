@@ -72,9 +72,9 @@ Access changes, administrator grants/revocations and onboarding events are writt
 
 ## Important status
 
-This remains a development scaffold, not production-ready software. The browser now uses OIDC authorization code + PKCE, one-time state/nonce checks, opaque Redis-backed sessions, HttpOnly cookies and a same-origin API proxy. Before production use, configure and verify the real OIDC provider and Redis TLS/availability, deploy approved invite delivery and abuse controls, run end-to-end/tenant-isolation tests against PostgreSQL and the selected identity provider, harden CI/CD, implement and review real AWS Terraform resources, and validate alerting, backup/restore and disaster recovery. The Terraform skeleton intentionally creates no AWS resources.
+This remains a development scaffold, not production-ready software. The browser now uses OIDC authorization code + PKCE, one-time state/nonce checks, opaque Redis-backed sessions, HttpOnly cookies and a same-origin API proxy. Before production use, configure and verify the real OIDC provider and Redis TLS/availability, deploy approved invite delivery and abuse controls, run end-to-end/tenant-isolation tests against PostgreSQL and the selected identity provider, harden CI/CD, implement and review real AWS Terraform resources, and validate alerting, backup/restore and disaster recovery. The Terraform repository contains network/ECR and remote-state bootstrap configurations, but CI never provisions AWS resources. Follow [the Terraform state runbook](docs/terraform-state-runbook.md) and obtain approval before any manual infrastructure plan/apply.
 
-See [docs/browser-authentication.md](docs/browser-authentication.md), [docs/observability.md](docs/observability.md), [docs/production-readiness.md](docs/production-readiness.md) and [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
+See [docs/browser-authentication.md](docs/browser-authentication.md), [docs/observability.md](docs/observability.md), [docs/production-readiness.md](docs/production-readiness.md), [docs/terraform-state-runbook.md](docs/terraform-state-runbook.md) and [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
 
 ## Existing local database
 

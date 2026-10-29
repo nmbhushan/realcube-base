@@ -127,7 +127,11 @@ jobs:
           terraform_version: 1.11.4
       - name: Check Terraform formatting
         run: terraform fmt -check -recursive infra/terraform
-      - name: Initialize development root without a backend
+      - name: Initialize state bootstrap root without backend
+        run: terraform -chdir=infra/terraform/bootstrap-state init -backend=false
+      - name: Validate state bootstrap configuration
+        run: terraform -chdir=infra/terraform/bootstrap-state validate
+      - name: Initialize development root without backend
         run: terraform -chdir=infra/terraform/environments/dev init -backend=false
-      - name: Validate Terraform configuration
+      - name: Validate development configuration
         run: terraform -chdir=infra/terraform/environments/dev validate
