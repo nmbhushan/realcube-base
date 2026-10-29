@@ -1,9 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { Public } from './auth/auth.decorators';
 
 @Public()
 @Controller('health')
 export class HealthController {
+  constructor(private readonly dataSource: DataSource) {}
+
   @Get()
   health() {
     return {
@@ -14,8 +17,19 @@ export class HealthController {
   }
 
   @Get('ready')
-  readiness() {
-    // The DB connection is validated at startup by TypeORM. Add deeper dependency checks for production.
-    return { status: 'ready' };
+  async readiness() {
+    try {
+      await this.dataSource.query('SELECT 1');
+      return { status: 'ready', dependencies: { database: 'ok' } };
+    } catch {
+      // Keep connection details and credentials out of public health responses.
+      console.warn(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        level: 'warn',
+        event: 'dependency.readiness.failed',
+        dependency: 'database',
+      }));
+      throw new ServiceUnavailableException('Database is not ready');
+    }
   }
 }

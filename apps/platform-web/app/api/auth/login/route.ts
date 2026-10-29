@@ -1,7 +1,7 @@
 import { randomNonce, randomPKCECodeVerifier, randomState, calculatePKCECodeChallenge, buildAuthorizationUrl } from 'openid-client';
 import { NextResponse, type NextRequest } from 'next/server';
 import {
-  getOidcConfiguration, getOidcRedirectUri, getPlatformWebBaseUrl,
+  getOidcConfiguration, getOidcRedirectUri, getPlatformWebBaseUrl, logWebSecurityEvent,
   oidcTransactionCookieName, storeOidcTransaction, transactionCookieOptions,
 } from '../../../../lib/server-auth';
 
@@ -28,12 +28,14 @@ export async function GET(_request: NextRequest) {
     const resource = process.env.OIDC_RESOURCE;
     if (resource) parameters.resource = resource;
 
+    logWebSecurityEvent('oidc.login.started');
     const response = NextResponse.redirect(buildAuthorizationUrl(configuration, parameters), 302);
     response.cookies.set(oidcTransactionCookieName, state, transactionCookieOptions());
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Referrer-Policy', 'no-referrer');
     return response;
   } catch {
+    logWebSecurityEvent('oidc.login.start_failed', { reason: 'issuer_or_transaction_store_unavailable' });
     const response = NextResponse.redirect(new URL('/?auth_error=configuration', getPlatformWebBaseUrl()), 303);
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Referrer-Policy', 'no-referrer');

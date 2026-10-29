@@ -7,6 +7,22 @@ permissions:
 jobs:
   build-and-test-api:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: workspace
+          POSTGRES_PASSWORD: postgres-test-password
+          POSTGRES_DB: platform_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U workspace -d platform_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      PLATFORM_TEST_DATABASE_URL: postgresql://workspace:postgres-test-password@localhost:5432/platform_test
     defaults:
       run:
         working-directory: apps/platform-api
@@ -17,7 +33,8 @@ jobs:
           node-version: 22
       - run: npm install --no-audit --no-fund
       - run: npm run build
-      - run: npm test
+      - run: npm test -- --testPathIgnorePatterns=integration
+      - run: npm run test:integration
   build-and-test-web:
     runs-on: ubuntu-latest
     defaults:
