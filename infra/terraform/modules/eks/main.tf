@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 locals {
   worker_identity_enabled = trimspace(var.access_events_queue_arn) != ""
   cluster_tags = merge(var.tags, {
@@ -246,6 +248,14 @@ resource "aws_iam_role" "vpc_cni" {
         Service = "pods.eks.amazonaws.com"
       }
       Action = ["sts:AssumeRole", "sts:TagSession"]
+      Condition = {
+        StringEquals = {
+          "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+        }
+        ArnEquals = {
+          "aws:SourceArn" = aws_eks_cluster.this.arn
+        }
+      }
     }]
   })
   tags = var.tags
@@ -284,6 +294,18 @@ data "aws_iam_policy_document" "worker_pod_identity_trust" {
       identifiers = ["pods.eks.amazonaws.com"]
     }
     actions = ["sts:AssumeRole", "sts:TagSession"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_eks_cluster.this.arn]
+    }
   }
 }
 
