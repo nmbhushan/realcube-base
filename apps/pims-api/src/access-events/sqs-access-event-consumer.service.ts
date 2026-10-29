@@ -149,15 +149,14 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
     try {
       await client.query('BEGIN');
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [payload.tenantId]);
-      const duplicate = await client.query(
-        'SELECT 1 FROM pims_processed_access_events WHERE event_id = $1',
-        [event.eventId],
+      const claimed = await client.query(
+        'INSERT INTO pims_processed_access_events (event_id, event_type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING RETURNING event_id',
+        [event.eventId, event.eventType],
       );
-      if (duplicate.rowCount) {
+      if (!claimed.rowCount) {
         await client.query('COMMIT');
         return;
       }
-
       await client.query(
         `INSERT INTO pims_entitlement_projection
            (oidc_issuer, oidc_subject, tenant_id, project_code, entitlement_status,
@@ -171,10 +170,6 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
                        projected_at = now()
          WHERE pims_entitlement_projection.entitlement_version < EXCLUDED.entitlement_version`,
         [payload.oidcIssuer, payload.oidcSubject, payload.tenantId, payload.status, version, event.eventId, event.occurredAt],
-      );
-      await client.query(
-        'INSERT INTO pims_processed_access_events (event_id, event_type) VALUES ($1, $2)',
-        [event.eventId, event.eventType],
       );
       await client.query(
         'UPDATE pims_access_event_consumer_state SET last_success_at = now(), last_event_id = $1 WHERE id = 1',
