@@ -18,6 +18,13 @@ CREATE TABLE pims_entitlement_projection (
 CREATE INDEX idx_pims_entitlement_tenant_status
   ON pims_entitlement_projection (tenant_id, entitlement_status);
 
+ALTER TABLE pims_entitlement_projection ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pims_entitlement_projection FORCE ROW LEVEL SECURITY;
+CREATE POLICY pims_entitlement_tenant_isolation
+  ON pims_entitlement_projection
+  USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+  WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
 CREATE TABLE pims_processed_access_events (
   event_id uuid PRIMARY KEY,
   event_type text NOT NULL,
