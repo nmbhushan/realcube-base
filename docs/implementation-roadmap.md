@@ -23,7 +23,9 @@
 4. Add audit log views.
 
 ## Stage 4 — Pilot business project
-Prove token validation, project permissions, tenant isolation, database ownership, independent deployment and revocation behavior with one project before templating the other eight.
+- Initial PIMS API foundation added: OIDC JWT verification, PIMS permission guards, tenant-scoped work-item endpoints, a dedicated schema and forced PostgreSQL RLS.
+- Remaining before the pilot is accepted: bind token claims to current Platform entitlements, verify the real-provider revocation SLA, add the Next.js PIMS frontend and server-side session flow, run PostgreSQL tenant-isolation integration tests, and rehearse independent deployment/rollback.
+- Prove token validation, project permissions, tenant isolation, database ownership, independent deployment and revocation behavior with PIMS before templating the other eight projects.
 
 ## Stage 5 — Production readiness
 Complete load tests, restore drills, RPO/RTO validation, incident runbooks, security review and rollback tests.
