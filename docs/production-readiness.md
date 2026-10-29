@@ -57,3 +57,13 @@ CI lints and renders the Helm chart, and asserts the readiness probes, zero-unav
 The chart always creates a private `ClusterIP` Service for the frontend and leaves ALB Ingress disabled by default. To enable it, set `ingress.enabled=true`, supply the real hostname and ACM certificate ARN, and verify the AWS Load Balancer Controller, subnet routing, ingress security groups, WAF and TLS policy in the target account. The chart enforces a WAFv2 ACL ARN for `internet-facing` ingress. The Ingress exposes only the frontend/BFF; the Platform API stays behind its ClusterIP Service.
 
 ALB target health checks call `/api/health/ready`, which verifies Redis is responding. This prevents the load balancer from routing requests to a frontend that cannot manage its server-side sessions. For an internal ALB, use private subnets and inbound rules limited to approved networks. Public ingress requires a separate security review; do not enable it merely to make a demo URL reachable.
+
+
+
+## PIMS pilot-specific gates
+
+- [ ] Populate `tenant_id`, `project_access` and permissions claims from current Platform membership/entitlement/role state; no static production grants.
+- [ ] Verify the actual OIDC provider's access-token issue time, audience and refresh behavior; demonstrate project-access revocation within the approved five-minute token-age bound or replace it with an explicitly reviewed projection/revocation design.
+- [ ] Run PostgreSQL cross-tenant read/write tests using the non-superuser `pims_app` role, with row-level security enabled and forced.
+- [ ] Keep the PIMS runtime database role separate from the migration owner and verify it has no superuser or `BYPASSRLS` privilege.
+- [ ] Add the server-side PIMS frontend, independent release configuration, migration job, alerting and rollback rehearsal before a pilot customer is onboarded.
