@@ -74,6 +74,21 @@ describe('EntitlementService', () => {
       .rejects.toBeInstanceOf(ServiceUnavailableException);
   });
 
+  it('fails closed when an event-processing failure marks the consumer unhealthy', async () => {
+    client.query.mockImplementation(async (sql: string) => {
+      if (sql.includes('SELECT p.entitlement_status')) return { rows: [{
+        entitlement_status: 'granted',
+        entitlement_version: '7',
+        projected_at: new Date(),
+        updated_at: new Date(),
+        healthy: false,
+      }] };
+      return { rows: [], rowCount: 0 };
+    });
+    await expect(service.getCurrentEntitlement('issuer', 'subject', '11111111-1111-4111-8111-111111111111'))
+      .rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
   it('fails closed when the projection store is unavailable', async () => {
     client.query.mockImplementation(async (sql: string) => {
       if (sql.includes('SELECT p.entitlement_status')) throw new Error('database unavailable');
