@@ -2,7 +2,7 @@
 
 ## Identity and access
 - [ ] Configure OIDC issuer, audience, JWKS URL, callback and logout URLs.
-- [ ] Verify authorization-code + PKCE, state/nonce checks, token refresh, logout and error handling with the selected OIDC provider.
+- [ ] Keep the local OIDC protocol-flow integration suite in CI; separately verify authorization-code + PKCE, state/nonce checks, token refresh, logout and error handling with a non-production registration on the selected OIDC provider.
 - [ ] Configure HTTPS, Secure/HttpOnly/SameSite cookies, Redis TLS/HA and managed secret injection for all web replicas.
 - [ ] Verify nonce-based CSP against all UI routes and third-party resources; configure CSP and login-abuse alerts.
 - [ ] Set RATE_LIMIT_CLIENT_IP_HEADER to a header overwritten by trusted ingress and validate limits through that ingress.

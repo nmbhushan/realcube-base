@@ -225,7 +225,21 @@ export async function getOidcConfiguration() {
           (issuerUrl.hostname === 'localhost' || issuerUrl.hostname === '127.0.0.1'))) {
       throw new Error('The OIDC issuer must use HTTPS outside localhost development');
     }
-    oidcConfigPromise = oidc.discovery(issuerUrl, clientId, clientSecret).catch((error: unknown) => {
+    const localHttpIssuer = issuerUrl.protocol === 'http:' &&
+      (issuerUrl.hostname === 'localhost' || issuerUrl.hostname === '127.0.0.1') &&
+      process.env.NODE_ENV !== 'production';
+    const discoveryOptions = localHttpIssuer ? { execute: [oidc.allowInsecureRequests] } : undefined;
+
+    oidcConfigPromise = oidc.discovery(
+      issuerUrl,
+      clientId,
+      {
+        client_secret: clientSecret,
+        redirect_uris: [getOidcRedirectUri()],
+      },
+      undefined,
+      discoveryOptions,
+    ).catch((error: unknown) => {
       oidcConfigPromise = undefined;
       throw error;
     });
