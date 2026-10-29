@@ -25,7 +25,6 @@ export class EntitlementService {
         entitlement_version: string;
         projected_at: Date;
         updated_at: Date | null;
-        consumer_updated_at: Date | null;
       }>(
         `SELECT p.entitlement_status, p.entitlement_version, p.projected_at, s.updated_at
            FROM pims_entitlement_projection p
@@ -48,7 +47,6 @@ export class EntitlementService {
     if (!row.updated_at) throw new ServiceUnavailableException('PIMS entitlement consumer has not initialized');
     const projectedAt = new Date(row.projected_at);
     const heartbeatAgeMs = Date.now() - new Date(row.updated_at).getTime();
-    const ageMs = Date.now() - projectedAt.getTime();
     if (!Number.isFinite(heartbeatAgeMs) || heartbeatAgeMs < -5000 || heartbeatAgeMs > maxProjectionAgeSeconds * 1000) {
       throw new ServiceUnavailableException('PIMS entitlement projection is stale');
     }
