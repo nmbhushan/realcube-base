@@ -2,7 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Pool } from 'pg';
 import { DataSource } from 'typeorm';
 import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { resolve } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import {
   AccessChangeOutbox, AuditLog, PlatformAdminGrant, PlatformUser,
@@ -64,7 +64,7 @@ integrationDescribe('PostgreSQL Platform tenant isolation and revocation integra
       '002_admin_bootstrap_outbox.sql',
       '003_platform_admin_workflows.sql',
     ]) {
-      const migrationPath = path.resolve(process.cwd(), '../../database/platform', migrationName);
+      const migrationPath = resolve(process.cwd(), '../../database/platform', migrationName);
       await dataSource.query(await readFile(migrationPath, 'utf8'));
     }
 
