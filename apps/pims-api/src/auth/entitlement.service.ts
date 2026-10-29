@@ -19,8 +19,11 @@ export class EntitlementService {
     }
 
     let result;
+    const client = await this.pool.connect();
     try {
-      result = await this.pool.query<{
+      await client.query('BEGIN');
+      await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+      result = await client.query<{
         entitlement_status: string;
         entitlement_version: string;
         projected_at: Date;
@@ -37,11 +40,13 @@ export class EntitlementService {
           LIMIT 1`,
         [issuer, subject, tenantId],
       );
+      await client.query('COMMIT');
     } catch {
-      // Never fall back to potentially stale token claims when the authorization projection is unavailable.
+      await client.query('ROLLBACK').catch(() => undefined);
       throw new ServiceUnavailableException('Current PIMS entitlement could not be verified');
+    } finally {
+      client.release();
     }
-
     const row = result.rows[0];
     if (!row) return { active: false, version: null, projectedAt: null };
 
