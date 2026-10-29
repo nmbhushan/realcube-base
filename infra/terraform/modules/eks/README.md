@@ -23,4 +23,10 @@ The dev root sets `enable_eks = false` by default. To opt in, set `enable_eks = 
 
 If `eks_access_events_queue_arn` is supplied, the module creates a Pod Identity association for service account `enterprise-platform-outbox-worker` in namespace `enterprise-platform`. The queue must already exist, and the Helm values must use that same service-account name.
 
-This module does not configure the AWS Load Balancer Controller, ExternalDNS, cluster autoscaler/Karpenter, database, Redis, secrets injection, VPC endpoints, or application releases. Those require dedicated design and acceptance testing.
+The AWS Load Balancer Controller can be enabled with `enable_load_balancer_controller=true`. Terraform creates a dedicated Pod Identity role/association for `kube-system/aws-load-balancer-controller` using the upstream v3.6.2 IAM policy pinned under `policies/`; install the pinned Helm chart separately using the runbook. Do not attach controller permissions to the node role.
+
+A regional AWS WAFv2 Web ACL can be created by setting `enable_platform_waf_web_acl=true`. It includes the AWS-managed IP reputation, common, known-bad-input and SQL injection rule groups plus a per-IP rate limit. CloudWatch metrics are on; sampled requests are off. WAF is a billable service and should be enabled only after budget approval. The Web ACL ARN is exposed as `platform_waf_web_acl_arn` for the Platform Ingress annotation.
+
+See [the ALB Controller and WAF runbook](../../../../docs/alb-controller-waf-runbook.md). The controller chart version is pinned in that runbook and must be manually upgraded after reviewing upstream releases.
+
+This module does not install the controller chart, ExternalDNS, cluster autoscaler/Karpenter, database, Redis, secrets injection, VPC endpoints, or application releases. Those require separate deployment and acceptance testing.
