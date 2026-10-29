@@ -117,3 +117,17 @@ jobs:
           grep -Fq "image: \"example.com/realcube/platform-api@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
           grep -Fq "image: \"example.com/realcube/platform-frontend@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
           grep -Fq "image: \"example.com/realcube/platform-worker@${IMAGE_DIGEST}\"" /tmp/platform-digest-rendered.yaml
+
+  terraform-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.11.4
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra/terraform
+      - name: Initialize development root without a backend
+        run: terraform -chdir=infra/terraform/environments/dev init -backend=false
+      - name: Validate Terraform configuration
+        run: terraform -chdir=infra/terraform/environments/dev validate
