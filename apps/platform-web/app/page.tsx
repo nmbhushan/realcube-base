@@ -11,9 +11,8 @@ type Role = { id: string; code: string; name: string; projectCode: string; permi
 type Assignment = { userId: string; email: string | null; displayName: string | null; projectCode: string; roleId: string; roleName: string; permissionCodes: string[] };
 type Invite = { id: string; email: string; displayName: string | null; expiresAt: string; token: string };
 type Tab = 'overview' | 'tenants' | 'members' | 'access' | 'roles';
+type SessionUser = { sub: string; issuer: string; email?: string; name?: string; emailVerified: boolean };
 
-const configuredApi = (process.env.NEXT_PUBLIC_PLATFORM_API_URL || 'http://localhost:3001').replace(/\/+$/, '');
-const initialApi = configuredApi.endsWith('/api/v1') ? configuredApi : configuredApi + '/api/v1';
 const navigation: { id: Tab; label: string; icon: string }[] = [
   { id: 'overview', label: 'Overview', icon: '▦' },
   { id: 'tenants', label: 'Tenants', icon: '▤' },
@@ -31,9 +30,8 @@ const errorMessage = (payload: unknown) => {
 };
 
 export default function Home() {
-  const [apiUrl, setApiUrl] = useState(initialApi);
-  const [token, setToken] = useState('');
   const [connected, setConnected] = useState(false);
+  const [user, setUser] = useState<SessionUser | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,25 +64,53 @@ export default function Home() {
   useEffect(() => {
     const fromLink = new URLSearchParams(window.location.hash.replace(/^#/, '')).get('invite');
     if (fromLink) setInviteToken(fromLink);
+    else {
+      const pending = sessionStorage.getItem('realcube:pending-invite');
+      if (pending) {
+        try {
+          const parsed = JSON.parse(pending) as { token?: string; createdAt?: number };
+          if (typeof parsed.token === 'string' && typeof parsed.createdAt === 'number' &&
+              Date.now() - parsed.createdAt < 15 * 60 * 1000) {
+            setInviteToken(parsed.token);
+          } else {
+            sessionStorage.removeItem('realcube:pending-invite');
+          }
+        } catch {
+          sessionStorage.removeItem('realcube:pending-invite');
+        }
+      }
+    }
+    const url = new URL(window.location.href);
+    const authError = url.searchParams.get('auth_error');
+    if (authError) {
+      setError(authError === 'configuration'
+        ? 'Single sign-on is not configured. Ask the platform operator to configure the OIDC client.'
+        : 'Sign-in could not be completed. Please try again or contact the platform operator.');
+      url.searchParams.delete('auth_error');
+      window.history.replaceState({}, '', url);
+    }
   }, []);
 
   const api = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
-    const base = apiUrl.trim().replace(/\/+$/, '');
-    if (!base) throw new Error('Enter the Platform API URL.');
-    if (!token.trim()) throw new Error('Enter a short-lived OIDC access token first.');
     const headers = new Headers(init.headers);
-    headers.set('Authorization', 'Bearer ' + token.trim());
     headers.set('Accept', 'application/json');
     if (init.body) headers.set('Content-Type', 'application/json');
-    const response = await fetch(base + '/' + path.replace(/^\/+/, ''), { ...init, headers, cache: 'no-store' });
+    const safePath = path.split('/').filter(Boolean).join('/');
+    const response = await fetch('/api/platform/' + safePath, {
+      ...init, headers, cache: 'no-store', credentials: 'same-origin',
+    });
     const text = await response.text();
     let payload: unknown = null;
     if (text) {
       try { payload = JSON.parse(text); } catch { payload = text; }
     }
+    if (response.status === 401) {
+      setConnected(false);
+      setUser(null);
+    }
     if (!response.ok) throw new Error(errorMessage(payload));
     return payload as T;
-  }, [apiUrl, token]);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true); setError(''); setNotice('');
@@ -103,6 +129,32 @@ export default function Home() {
       setConnected(false); setError(caught instanceof Error ? caught.message : 'Connection failed.');
     } finally { setLoading(false); }
   }, [api]);
+
+  useEffect(() => {
+    let current = true;
+    void fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' })
+      .then(async response => {
+        if (!response.ok) return { authenticated: false as const };
+        return await response.json() as { authenticated: boolean; user?: SessionUser };
+      })
+      .then(result => {
+        if (!current) return;
+        if (result.authenticated && result.user) {
+          setUser(result.user);
+          void load();
+        } else {
+          setConnected(false);
+          setUser(null);
+        }
+      })
+      .catch(() => {
+        if (current) {
+          setConnected(false);
+          setUser(null);
+        }
+      });
+    return () => { current = false; };
+  }, [load]);
 
   const loadTenant = useCallback(async () => {
     if (!connected || !tenantId) return;
@@ -165,6 +217,10 @@ export default function Home() {
       const result = await api<{ status: string; tenantId: string }>('invitations/accept', { method: 'POST', body: JSON.stringify({ token: inviteToken.trim() }) });
       setNotice('Invitation accepted for tenant ' + result.tenantId + '. You can close this page.');
       setInviteToken('');
+      sessionStorage.removeItem('realcube:pending-invite');
+      const cleanUrl = new URL(window.location.href);
+      cleanUrl.hash = '';
+      window.history.replaceState({}, '', cleanUrl);
       const url = new URL(window.location.href); url.searchParams.delete('invite'); url.hash = ''; window.history.replaceState({}, '', url);
     } catch (caught) { setError(caught instanceof Error ? caught.message : 'Invitation acceptance failed.'); }
     finally { setSaving(false); }
@@ -225,8 +281,30 @@ export default function Home() {
         <header className="topbar"><div className="crumb"><span>Platform</span><span className="crumb-divider">/</span><strong>{navigation.find(n => n.id === tab)?.label}</strong></div><div className="topbar-right"><span className="environment"><i /> CONTROL PLANE</span><span className="avatar">EP</span></div></header>
         <div className="content">
           <div className="page-title-row"><div><p className="eyebrow">REALCUBE / PLATFORM ADMINISTRATION</p><h1>{tab === 'overview' ? 'Enterprise Platform' : navigation.find(n => n.id === tab)?.label}</h1><p className="lede">Identity, tenant membership and project entitlements in one control plane.</p></div><div className="tenant-picker"><label htmlFor="tenant-context">Active tenant<select id="tenant-context" value={tenantId} onChange={e => setTenantId(e.target.value)} disabled={!tenants.length}><option value="">Select tenant</option>{tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}</select></label></div></div>
-          {inviteToken && <section className="invite-accept-panel"><div><span className="kicker">MEMBER INVITATION</span><h2>Accept your workspace invitation</h2><p>Sign in through your trusted OIDC provider first. The API checks that the signed-in identity has a verified email matching this invitation.</p></div><form className="inline-form" onSubmit={acceptInvite}><label>Invitation token<input value={inviteToken} onChange={e => setInviteToken(e.target.value)} required /></label><button className="button primary" disabled={saving || !token.trim()}>{saving ? 'Processing…' : 'Accept invitation'}</button></form></section>}
-          <section className="connect-panel"><div className="connect-copy"><span className={'status-pill ' + (connected ? 'success' : 'neutral')}><i />{connected ? 'CONNECTED' : 'AUTHENTICATION REQUIRED'}</span><h2>{connected ? 'Administrator session' : 'Connect to Platform API'}</h2><p>Use a short-lived OIDC access token. It stays in page memory and is not written to local storage.</p></div><form className="connect-form" onSubmit={e => { e.preventDefault(); void load(); }}><label>API base URL<input value={apiUrl} onChange={e => setApiUrl(e.target.value)} autoComplete="url" /></label><label>OIDC access token<input type="password" value={token} onChange={e => { setToken(e.target.value); setConnected(false); }} autoComplete="off" placeholder="Paste short-lived access token" /></label><button className="button primary" disabled={loading || !token.trim()}>{loading ? 'Connecting…' : connected ? 'Refresh data' : 'Connect securely'}</button></form></section>
+          {inviteToken && <section className="invite-accept-panel"><div><span className="kicker">MEMBER INVITATION</span><h2>Accept your workspace invitation</h2><p>Sign in through your trusted OIDC provider first. The API checks that the signed-in identity has a verified email matching this invitation.</p></div><form className="inline-form" onSubmit={acceptInvite}><label>Invitation token<input value={inviteToken} onChange={e => setInviteToken(e.target.value)} required /></label><button className="button primary" disabled={saving || !connected}>{saving ? 'Processing…' : 'Accept invitation'}</button></form></section>}
+          <section className="connect-panel">
+            <div className="connect-copy">
+              <span className={'status-pill ' + (connected ? 'success' : 'neutral')}><i />{connected ? 'AUTHENTICATED' : 'SINGLE SIGN-ON'}</span>
+              <h2>{connected ? 'Administrator session' : 'Sign in to Enterprise Platform'}</h2>
+              <p>{connected
+                ? 'Signed in as ' + (user?.email || user?.name || user?.sub || 'authenticated administrator') + '. The API checks your permissions on every request.'
+                : 'Use your organization identity provider. Authorization code + PKCE keeps provider tokens on the server and out of browser JavaScript.'}</p>
+            </div>
+            <div className="auth-actions">
+              {!connected ? (
+                <a className="button primary" href="/api/auth/login" onClick={() => {
+                  if (inviteToken) sessionStorage.setItem('realcube:pending-invite', JSON.stringify({ token: inviteToken, createdAt: Date.now() }));
+                }}>Sign in with SSO <span>→</span></a>
+              ) : (
+                <>
+                  <button type="button" className="button secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh data'}</button>
+                  <form action="/api/auth/logout" method="post">
+                    <button type="submit" className="button secondary">Sign out</button>
+                  </form>
+                </>
+              )}
+            </div>
+          </section>
           {error && <div className="feedback error" role="alert"><span>!</span><p>{error}</p><button type="button" aria-label="Dismiss error" onClick={() => setError('')}>×</button></div>}
           {notice && <div className="feedback success" role="status"><span>✓</span><p>{notice}</p><button type="button" aria-label="Dismiss notice" onClick={() => setNotice('')}>×</button></div>}
 

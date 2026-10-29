@@ -98,6 +98,15 @@ spec:
         - name: frontend
           image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
           ports: [{ name: http, containerPort: {{ .Values.frontend.port }} }]
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: PLATFORM_API_INTERNAL_URL, value: {{ .Values.frontend.apiInternalUrl | quote }} }
+            - { name: SESSION_COOKIE_SECURE, value: "{{ .Values.frontend.sessionCookieSecure }}" }
+          {{- with .Values.frontend.envFromSecretName }}
+          envFrom:
+            - secretRef:
+                name: {{ . | quote }}
+          {{- end }}
           readinessProbe:
             httpGet: { path: /, port: http }
           resources:

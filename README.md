@@ -21,7 +21,7 @@ Enterprise Platform and shared infrastructure foundation for the RealCube busine
 - Admin APIs for tenant creation, verified-email invitations, scoped project entitlements, tenant/project-scoped roles, permission assignment, Platform administrator grants and access-change audit/outbox events.
 - OIDC JWT validation using a configured issuer, audience and JWKS endpoint. Protected admin routes fail closed when OIDC is not configured.
 - Transactional audit/outbox records for tenant creation, invitations, memberships, project entitlements, Platform administrator changes and project-role changes.
-- Docker Compose for local API, frontend and PostgreSQL.
+- Docker Compose for the API, frontend, PostgreSQL and Redis-backed server sessions.
 - Terraform/Helm starter files and security/operations documentation.
 
 ## Local development
@@ -30,12 +30,13 @@ Prerequisites: Node.js 22+, npm, Docker with Compose.
 
     cp .env.example .env
     # Set a local-only POSTGRES_PASSWORD.
-    # Configure OIDC settings to call protected admin APIs.
+    # Configure OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET..
     docker compose --env-file .env -f docker/compose.yaml up --build
 
 Frontend: http://localhost:3000
 Public API health: http://localhost:3001/api/v1/health
-Protected admin routes: http://localhost:3001/api/v1/admin/*
+Browser sign-in: http://localhost:3000/api/auth/login
+Browser API calls go through the same-origin `/api/platform/*` BFF. Access and refresh tokens remain on the server in Redis.
 
 For direct host development, install dependencies in each app directory and use a host-reachable PostgreSQL URL rather than the Compose hostname postgres.
 
@@ -70,9 +71,9 @@ Access changes, administrator grants/revocations and onboarding events are writt
 
 ## Important status
 
-This remains a development scaffold, not production-ready software. Tenant invitation lifecycle, Platform admin grants, scoped project roles and durable access-change outbox are implemented with unit-level coverage. Before production use, configure and verify the real OIDC provider and browser session strategy, deploy approved invite delivery and abuse controls, run end-to-end/tenant-isolation tests against PostgreSQL and the chosen identity provider, harden CI/CD, implement and review real AWS Terraform resources, and validate alerting, backup/restore and disaster recovery. The Terraform skeleton intentionally creates no AWS resources.
+This remains a development scaffold, not production-ready software. The browser now uses OIDC authorization code + PKCE, one-time state/nonce checks, opaque Redis-backed sessions, HttpOnly cookies and a same-origin API proxy. Before production use, configure and verify the real OIDC provider and Redis TLS/availability, deploy approved invite delivery and abuse controls, run end-to-end/tenant-isolation tests against PostgreSQL and the selected identity provider, harden CI/CD, implement and review real AWS Terraform resources, and validate alerting, backup/restore and disaster recovery. The Terraform skeleton intentionally creates no AWS resources.
 
-See docs/production-readiness.md and docs/implementation-roadmap.md.
+See [docs/browser-authentication.md](docs/browser-authentication.md), [docs/production-readiness.md](docs/production-readiness.md) and [docs/implementation-roadmap.md](docs/implementation-roadmap.md).
 
 ## Existing local database
 

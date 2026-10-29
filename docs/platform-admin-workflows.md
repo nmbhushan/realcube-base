@@ -6,7 +6,7 @@ Platform admins create an invitation for a tenant and a verified email address t
 
 The invitee must authenticate through the trusted OIDC provider and call `POST /api/v1/invitations/accept` with a valid bearer token and the invitation token. The API requires `iss`, `sub`, an email claim and `email_verified: true`, and enforces an exact case-insensitive match between the signed-in verified email and invitation. The OIDC issuer/subject mapping is created only after that check. Invitations are one-time, expire after a configurable number of days (default seven), and are serialized for each tenant/email pair.
 
-Do not send OIDC access tokens to the inviter or include them in invitation links. The Platform UI holds the access token in page memory only; this is a development/admin console pattern, not a substitute for production OIDC authorization-code flow with a hardened session/BFF.
+Do not send OIDC access tokens to the inviter or include them in invitation links. The web console now uses authorization-code + PKCE and a same-origin BFF; browser cookies contain only an opaque HttpOnly session ID and OAuth tokens remain in Redis. Session security and deployment assumptions are documented in [browser-authentication.md](browser-authentication.md).
 
 ## Tenant-scoped roles
 
@@ -24,4 +24,4 @@ Migration `003_platform_admin_workflows.sql` follows migrations 001 and 002. The
 
 ## Validation and remaining production work
 
-Unit tests cover the identity/email binding checks and verify that roles cannot be assigned without an active project grant. Production rollout still requires end-to-end tests against the chosen OIDC provider and PostgreSQL, email delivery through an approved provider, a production browser login/session strategy, rate limits and abuse monitoring, and infrastructure/security review.
+Unit tests cover the identity/email binding checks and verify that roles cannot be assigned without an active project grant. Production rollout still requires end-to-end tests against the chosen OIDC provider and PostgreSQL, email delivery through an approved provider, rate limits and abuse monitoring, and infrastructure/security review.
