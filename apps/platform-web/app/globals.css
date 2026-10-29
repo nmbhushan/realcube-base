@@ -1,0 +1,17 @@
+:root{color-scheme:light;--ink:#142238;--muted:#607086;--line:#dce4ee;--panel:#fff;--page:#f4f7fb;--brand:#17365d}
+*{box-sizing:border-box} html,body{margin:0;min-height:100%}
+body{background:var(--page);color:var(--ink);font-family:Arial,Helvetica,sans-serif}
+.page{max-width:1180px;margin:0 auto;padding:48px 24px}
+.hero{padding:34px;background:var(--brand);color:white;border-radius:20px}
+.eyebrow{letter-spacing:.14em;font-size:12px;font-weight:700;opacity:.8}
+h1{font-size:clamp(32px,5vw,48px);margin:10px 0}
+.lede{max-width:700px;color:#dce8f7;line-height:1.6}
+.notice{margin-top:22px;border:1px solid #8097b2;border-radius:10px;padding:12px 14px;font-size:13px}
+section{margin-top:36px}.section-heading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.section-heading p,.project-card p,footer{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:18px}
+.project-card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.project-mark{display:inline-grid;place-items:center;width:38px;height:38px;border-radius:10px;background:#e5effb;color:var(--brand);font-weight:700}
+.project-card h3{margin:16px 0 6px}.project-card p{min-height:40px;line-height:1.5;font-size:14px}
+.status{display:inline-block;margin-top:10px;color:#765317;background:#fff2d6;border-radius:999px;padding:5px 9px;font-size:11px}
+footer{padding-top:30px;font-size:12px}

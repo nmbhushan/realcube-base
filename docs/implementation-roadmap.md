@@ -1,0 +1,26 @@
+# Implementation Roadmap
+
+## Stage 1 — Foundation
+1. Confirm OIDC provider, tenant model and AWS account strategy.
+2. Protect the repository and configure CI.
+3. Build reviewed Terraform modules and secure remote state.
+4. Establish ECR, Docker build and deployment standards.
+
+## Stage 2 — Platform API
+1. Implement persistence for tenants, users, projects, entitlements, roles, permissions and audit.
+2. Integrate OIDC identity mapping.
+3. Implement protected administrative APIs.
+4. Add reliable access-change publishing with an outbox pattern.
+5. Add tenant isolation, access and audit tests.
+
+## Stage 3 — Platform UI
+1. Implement secure sign-in/session flow.
+2. Build tenant/user onboarding screens.
+3. Add project entitlement and role/permission management.
+4. Add audit log views.
+
+## Stage 4 — Pilot business project
+Prove token validation, project permissions, tenant isolation, database ownership, independent deployment and revocation behavior with one project before templating the other eight.
+
+## Stage 5 — Production readiness
+Complete load tests, restore drills, RPO/RTO validation, incident runbooks, security review and rollback tests.

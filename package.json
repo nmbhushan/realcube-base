@@ -1,0 +1,10 @@
+{
+  "name": "realcube-base",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm --prefix apps/platform-api run start:dev",
+    "dev:web": "npm --prefix apps/platform-web run dev",
+    "build:api": "npm --prefix apps/platform-api run build",
+    "build:web": "npm --prefix apps/platform-web run build"
+  }
+}

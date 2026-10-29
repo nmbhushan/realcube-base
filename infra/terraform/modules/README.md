@@ -1,0 +1,1 @@
+Create reviewed reusable modules here. Each module should include main.tf, variables.tf, outputs.tf, input validation, secure defaults and tests where feasible. Keep environments separated and avoid overly generic abstractions for security-sensitive behavior.

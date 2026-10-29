@@ -1,0 +1,1 @@
+Local Compose initializes the Platform reference schema only when the PostgreSQL volume is first created. Production schema changes must use controlled versioned migrations, not container initialization scripts.
