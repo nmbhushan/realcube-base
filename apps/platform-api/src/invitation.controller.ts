@@ -158,12 +158,15 @@ export class InvitationController {
       if (memberships[0]?.status === 'active') {
         throw new ConflictException('This identity is already an active member of the invited tenant');
       }
-      await manager.query(
+      const membershipRows = await manager.query(
         `INSERT INTO tenant_users (tenant_id, user_id, status)
          VALUES ($1, $2, 'active')
-         ON CONFLICT (tenant_id, user_id) DO UPDATE SET status = 'active'`,
+         ON CONFLICT (tenant_id, user_id)
+         DO UPDATE SET status = 'active', membership_version = tenant_users.membership_version + 1
+         RETURNING membership_version`,
         [invitation.tenantId, user.id],
       );
+      const membershipVersion = String(membershipRows[0].membership_version);
       await manager.query(
         `UPDATE platform_user_invitations
             SET status = 'accepted', accepted_by_user_id = $2, accepted_at = now()
@@ -176,9 +179,10 @@ export class InvitationController {
         details: { invitationId: invitation.id, userId: user.id },
       });
       await this.writeOutbox(manager, {
-        eventType: 'platform.user_joined_tenant', aggregateType: 'tenant_membership',
+        eventType: 'platform.tenant_membership.activated', aggregateType: 'tenant_membership',
         aggregateId: `${invitation.tenantId}:${user.id}`, tenantId: invitation.tenantId,
-        payload: { tenantId: invitation.tenantId, userId: user.id, invitationId: invitation.id },
+        payload: { tenantId: invitation.tenantId, userId: user.id, invitationId: invitation.id,
+          status: 'active', membershipVersion, oidcIssuer: user.oidcIssuer, oidcSubject: user.oidcSubject },
       });
       return { expired: false, status: 'accepted', userId: user.id, tenantId: invitation.tenantId };
     });
