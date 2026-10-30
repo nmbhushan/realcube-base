@@ -30,9 +30,13 @@ export class EntitlementService {
         projected_at: Date;
         updated_at: Date | null;
         healthy: boolean;
+        membership_status: string | null;
       }>(
-        `SELECT p.entitlement_status, p.entitlement_version, p.projected_at, s.updated_at, s.healthy
+        `SELECT p.entitlement_status, p.entitlement_version, p.projected_at, s.updated_at, s.healthy,
+                m.membership_status
            FROM pims_entitlement_projection p
+           LEFT JOIN pims_membership_projection m
+             ON m.oidc_issuer = p.oidc_issuer AND m.oidc_subject = p.oidc_subject AND m.tenant_id = p.tenant_id
            LEFT JOIN pims_access_event_consumer_state s ON s.id = 1
           WHERE p.oidc_issuer = $1
             AND p.oidc_subject = $2
@@ -59,7 +63,7 @@ export class EntitlementService {
     }
 
     return {
-      active: row.entitlement_status === 'granted',
+      active: row.entitlement_status === 'granted' && row.membership_status === 'active',
       version: row.entitlement_version,
       projectedAt,
     };
