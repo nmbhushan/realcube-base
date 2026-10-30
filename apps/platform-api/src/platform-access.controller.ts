@@ -29,6 +29,17 @@ class CreateRoleDto {
   permissionCodes!: string[];
 }
 
+class SetMembershipStatusDto {
+  @IsUUID()
+  tenantId!: string;
+
+  @IsUUID()
+  userId!: string;
+
+  @IsIn(['active', 'suspended', 'removed'])
+  status!: 'active' | 'suspended' | 'removed';
+}
+
 class SetUserProjectRoleDto {
   @IsUUID()
   tenantId!: string;
@@ -63,6 +74,62 @@ export class PlatformAccessController {
         ORDER BY u.email NULLS LAST, u.created_at DESC`,
       [tenantId],
     );
+  }
+
+  @Post('member-status')
+  async setMemberStatus(
+    @Body() dto: SetMembershipStatusDto,
+    @CurrentPrincipal() principal: JWTPayload,
+  ) {
+    return this.dataSource.transaction(async (manager) => {
+      const rows = await manager.query(
+        `SELECT m.status, m.membership_version, u.oidc_issuer, u.oidc_subject
+           FROM tenant_users m
+           JOIN users u ON u.id = m.user_id
+          WHERE m.tenant_id = $1 AND m.user_id = $2
+          FOR UPDATE OF m`,
+        [dto.tenantId, dto.userId],
+      );
+      if (!rows.length) throw new NotFoundException('Tenant membership not found');
+      if (dto.status === 'active') {
+        const tenants = await manager.query(
+          "SELECT id FROM tenants WHERE id = $1 AND status = 'active'", [dto.tenantId],
+        );
+        const users = await manager.query(
+          "SELECT id FROM users WHERE id = $1 AND status = 'active'", [dto.userId],
+        );
+        if (!tenants.length || !users.length) {
+          throw new BadRequestException('An active tenant and user are required to activate membership');
+        }
+      }
+      if (rows[0].status === dto.status) {
+        return { tenantId: dto.tenantId, userId: dto.userId, status: dto.status,
+          membershipVersion: String(rows[0].membership_version), unchanged: true };
+      }
+      const updated = await manager.query(
+        `UPDATE tenant_users
+            SET status = $3, membership_version = membership_version + 1
+          WHERE tenant_id = $1 AND user_id = $2
+          RETURNING membership_version`,
+        [dto.tenantId, dto.userId, dto.status],
+      );
+      const membershipVersion = String(updated[0].membership_version);
+      const eventType = dto.status === 'active' ? 'platform.tenant_membership.activated'
+        : dto.status === 'suspended' ? 'platform.tenant_membership.suspended'
+        : 'platform.tenant_membership.removed';
+      const details = { tenantId: dto.tenantId, userId: dto.userId,
+        status: dto.status, membershipVersion };
+      await this.writeAudit(manager, principal, {
+        tenantId: dto.tenantId, action: `tenant_membership.${dto.status}`,
+        targetType: 'tenant_membership', targetId: `${dto.tenantId}:${dto.userId}`, details,
+      });
+      await this.writeOutbox(manager, {
+        eventType, aggregateType: 'tenant_membership',
+        aggregateId: `${dto.tenantId}:${dto.userId}`, tenantId: dto.tenantId,
+        payload: { ...details, oidcIssuer: rows[0].oidc_issuer, oidcSubject: rows[0].oidc_subject },
+      });
+      return { ...details, unchanged: false };
+    });
   }
 
   @Get('permissions')
