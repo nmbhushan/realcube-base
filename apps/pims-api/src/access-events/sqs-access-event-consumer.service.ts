@@ -18,8 +18,9 @@ interface PlatformAccessEvent {
     tenantId?: string;
     userId?: string;
     projectCode?: string;
-    status?: 'granted' | 'revoked';
+    status?: 'granted' | 'revoked' | 'active' | 'suspended' | 'removed';
     entitlementVersion?: string | number;
+    membershipVersion?: string | number;
     oidcIssuer?: string;
     oidcSubject?: string;
   };
@@ -120,8 +121,25 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
 
     // Platform publishes several event families and projects to the shared queue.
     // Valid but irrelevant events must be acknowledged rather than poison the PIMS consumer.
-    if (!event.eventType.startsWith('platform.project_access.')) return null;
     const payload = event.payload;
+    if (event.eventType.startsWith('platform.tenant_membership.')) {
+      const status = payload.status;
+      const expectedType = status === 'active' ? 'platform.tenant_membership.activated'
+        : status === 'suspended' ? 'platform.tenant_membership.suspended'
+        : status === 'removed' ? 'platform.tenant_membership.removed' : '';
+      if (
+        typeof payload.tenantId !== 'string' ||
+        typeof payload.oidcIssuer !== 'string' || !payload.oidcIssuer ||
+        typeof payload.oidcSubject !== 'string' || !payload.oidcSubject ||
+        !['active', 'suspended', 'removed'].includes(String(status)) ||
+        event.eventType !== expectedType ||
+        !/^\\d+$/.test(String(payload.membershipVersion)) ||
+        BigInt(String(payload.membershipVersion)) < 1n
+      ) throw new Error('Tenant membership event does not match the contract');
+      if (!Number.isFinite(new Date(event.occurredAt).getTime())) throw new Error('Invalid event timestamp');
+      return event as PlatformAccessEvent;
+    }
+    if (!event.eventType.startsWith('platform.project_access.')) return null;
     if (typeof payload.projectCode !== 'string') throw new Error('Project access event is missing projectCode');
     if (payload.projectCode !== 'PIMS') return null;
 
@@ -154,6 +172,29 @@ export class SqsAccessEventConsumerService implements OnModuleInit, OnModuleDest
         [event.eventId, event.eventType],
       );
       if (!claimed.rowCount) {
+        await client.query('COMMIT');
+        return;
+      }
+      if (event.eventType.startsWith('platform.tenant_membership.')) {
+        await client.query(
+          `INSERT INTO pims_membership_projection
+             (oidc_issuer, oidc_subject, tenant_id, membership_status,
+              membership_version, source_event_id, source_occurred_at, projected_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, now())
+           ON CONFLICT (oidc_issuer, oidc_subject, tenant_id)
+           DO UPDATE SET membership_status = EXCLUDED.membership_status,
+                         membership_version = EXCLUDED.membership_version,
+                         source_event_id = EXCLUDED.source_event_id,
+                         source_occurred_at = EXCLUDED.source_occurred_at,
+                         projected_at = now()
+           WHERE pims_membership_projection.membership_version < EXCLUDED.membership_version`,
+          [payload.oidcIssuer, payload.oidcSubject, payload.tenantId, payload.status,
+            String(payload.membershipVersion), event.eventId, event.occurredAt],
+        );
+        await client.query(
+          'UPDATE pims_access_event_consumer_state SET last_success_at = now(), last_event_id = $1 WHERE id = 1',
+          [event.eventId],
+        );
         await client.query('COMMIT');
         return;
       }
