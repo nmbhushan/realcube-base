@@ -72,6 +72,14 @@ suite('PIMS PostgreSQL authorization integration', () => {
     const issuer = 'https://issuer.integration.test/';
     const subject = randomUUID();
     const occurredAt = new Date().toISOString();
+    await (consumer as any).applyEvent({
+      eventId: randomUUID(),
+      eventType: 'platform.tenant_membership.activated',
+      tenantId,
+      occurredAt,
+      payload: { tenantId, userId: randomUUID(), status: 'active', membershipVersion: '1',
+        oidcIssuer: issuer, oidcSubject: subject },
+    });
     const apply = (status: 'granted' | 'revoked', version: string, eventId: string) =>
       (consumer as any).applyEvent({
         eventId,
