@@ -63,6 +63,7 @@ integrationDescribe('PostgreSQL Platform tenant isolation and revocation integra
       '001_initial_schema.sql',
       '002_admin_bootstrap_outbox.sql',
       '003_platform_admin_workflows.sql',
+      '005_tenant_membership_projection_outbox.sql',
     ]) {
       const migrationPath = resolve(process.cwd(), '../../database/platform', migrationName);
       await dataSource.query(await readFile(migrationPath, 'utf8'));

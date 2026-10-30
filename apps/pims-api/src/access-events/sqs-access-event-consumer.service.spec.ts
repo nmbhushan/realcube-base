@@ -35,6 +35,15 @@ describe('SqsAccessEventConsumerService event parsing', () => {
     }))).toBeNull();
   });
 
+  it('accepts a versioned tenant membership suspension event', () => {
+    expect(parse(JSON.stringify({
+      ...base,
+      eventType: 'platform.tenant_membership.suspended',
+      payload: { tenantId: base.tenantId, userId: 'user-id', status: 'suspended',
+        membershipVersion: '4', oidcIssuer: 'https://issuer.example.test/', oidcSubject: 'subject-1' },
+    }))).toMatchObject({ eventType: 'platform.tenant_membership.suspended' });
+  });
+
   it('ignores valid non-entitlement event families', () => {
     expect(parse(JSON.stringify({
       ...base,

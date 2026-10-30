@@ -30,6 +30,7 @@ describe('EntitlementService', () => {
         projected_at: new Date(),
         updated_at: new Date(),
         healthy: true,
+        membership_status: 'active',
       }] };
       return { rows: [], rowCount: 0 };
     });
@@ -52,6 +53,7 @@ describe('EntitlementService', () => {
         projected_at: new Date(),
         updated_at: new Date(),
         healthy: true,
+        membership_status: 'active',
       }] };
       return { rows: [], rowCount: 0 };
     });
@@ -67,6 +69,7 @@ describe('EntitlementService', () => {
         projected_at: new Date(),
         updated_at: new Date(Date.now() - 120_000),
         healthy: true,
+        membership_status: 'active',
       }] };
       return { rows: [], rowCount: 0 };
     });
@@ -82,6 +85,7 @@ describe('EntitlementService', () => {
         projected_at: new Date(),
         updated_at: new Date(),
         healthy: false,
+        membership_status: 'active',
       }] };
       return { rows: [], rowCount: 0 };
     });

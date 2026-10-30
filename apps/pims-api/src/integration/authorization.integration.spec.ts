@@ -72,6 +72,14 @@ suite('PIMS PostgreSQL authorization integration', () => {
     const issuer = 'https://issuer.integration.test/';
     const subject = randomUUID();
     const occurredAt = new Date().toISOString();
+    await (consumer as any).applyEvent({
+      eventId: randomUUID(),
+      eventType: 'platform.tenant_membership.activated',
+      tenantId,
+      occurredAt,
+      payload: { tenantId, userId: randomUUID(), status: 'active', membershipVersion: '1',
+        oidcIssuer: issuer, oidcSubject: subject },
+    });
     const apply = (status: 'granted' | 'revoked', version: string, eventId: string) =>
       (consumer as any).applyEvent({
         eventId,
@@ -103,5 +111,35 @@ suite('PIMS PostgreSQL authorization integration', () => {
     await apply('granted', '1', randomUUID());
     await expect(entitlements.getCurrentEntitlement(issuer, subject, tenantId))
       .resolves.toMatchObject({ active: false, version: '2' });
+  });
+
+  it('denies suspended membership and ignores an older activation event', async () => {
+    const tenantId = randomUUID();
+    const issuer = 'https://issuer.integration.test/';
+    const subject = randomUUID();
+    const occurredAt = new Date().toISOString();
+    const applyMembership = (status: 'active' | 'suspended', version: string) =>
+      (consumer as any).applyEvent({
+        eventId: randomUUID(),
+        eventType: status === 'active' ? 'platform.tenant_membership.activated' : 'platform.tenant_membership.suspended',
+        tenantId,
+        occurredAt,
+        payload: { tenantId, userId: randomUUID(), status, membershipVersion: version,
+          oidcIssuer: issuer, oidcSubject: subject },
+      });
+    await (consumer as any).applyEvent({
+      eventId: randomUUID(), eventType: 'platform.project_access.granted', tenantId, occurredAt,
+      payload: { tenantId, userId: randomUUID(), projectCode: 'PIMS', status: 'granted',
+        entitlementVersion: '1', oidcIssuer: issuer, oidcSubject: subject },
+    });
+    await applyMembership('active', '1');
+    await expect(entitlements.getCurrentEntitlement(issuer, subject, tenantId))
+      .resolves.toMatchObject({ active: true });
+    await applyMembership('suspended', '2');
+    await expect(entitlements.getCurrentEntitlement(issuer, subject, tenantId))
+      .resolves.toMatchObject({ active: false });
+    await applyMembership('active', '1');
+    await expect(entitlements.getCurrentEntitlement(issuer, subject, tenantId))
+      .resolves.toMatchObject({ active: false });
   });
 });

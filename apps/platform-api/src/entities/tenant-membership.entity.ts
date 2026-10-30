@@ -13,6 +13,9 @@ export class TenantMembership {
   @Column({ type: 'text', default: 'active' })
   status!: MembershipStatus;
 
+  @Column({ name: 'membership_version', type: 'bigint', default: 1 })
+  membershipVersion!: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 }

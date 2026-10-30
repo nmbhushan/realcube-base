@@ -81,7 +81,7 @@ jobs:
       - name: Create least-privilege PIMS role
         run: cd ../.. && PGPASSWORD=pims-test-password PGHOST=localhost PIMS_APP_DB_PASSWORD=pims-app-test-password POSTGRES_USER=postgres POSTGRES_DB=pims_db bash database/pims/000-create-app-role.sh
       - name: Apply PIMS schema and entitlement projection
-        run: cd ../.. && PGPASSWORD=pims-test-password PGHOST=localhost psql -v ON_ERROR_STOP=1 -U postgres -d pims_db -f database/pims/001_initial_schema.sql && PGPASSWORD=pims-test-password PGHOST=localhost psql -v ON_ERROR_STOP=1 -U postgres -d pims_db -f database/pims/002_entitlement_projection.sql
+        run: cd ../.. && PGPASSWORD=pims-test-password PGHOST=localhost psql -v ON_ERROR_STOP=1 -U postgres -d pims_db -f database/pims/001_initial_schema.sql && PGPASSWORD=pims-test-password PGHOST=localhost psql -v ON_ERROR_STOP=1 -U postgres -d pims_db -f database/pims/002_entitlement_projection.sql && PGPASSWORD=pims-test-password PGHOST=localhost psql -v ON_ERROR_STOP=1 -U postgres -d pims_db -f database/pims/003_membership_projection.sql
       - run: npm install --no-audit --no-fund
       - run: npm run build
       - run: npm test

@@ -2,8 +2,10 @@
 
 ## Implemented in repository
 
-The PIMS API now includes a local entitlement projection and an optional SQS access-event consumer:
+The PIMS API now includes a local project-entitlement and tenant-membership projection with an optional SQS access-event consumer:
 - Platform project-access grant/revoke events include the user's OIDC issuer and subject in the event payload (not tokens or credentials).
+- Tenant membership activation, suspension and removal are versioned in Platform and published through the transactional outbox. PIMS projects membership state separately and requires it to be active in addition to project entitlement.
+- Apply `database/platform/005_tenant_membership_projection_outbox.sql` to add the membership version and enqueue the initial membership snapshot. Apply `database/pims/003_membership_projection.sql` after PIMS migration 002.
 - PIMS validates the OIDC token, then requires an active local projection for the exact issuer, subject, tenant and PIMS project. Token `project_access` claims are not treated as the live source of truth.
 - The consumer deduplicates stable event IDs, applies only strictly newer entitlement versions, commits projection and deduplication in one PostgreSQL transaction, and deletes an SQS message only after successful commit.
 - Authorization fails closed if the projection database cannot be queried, the consumer is unhealthy, or the consumer heartbeat exceeds `PIMS_ENTITLEMENT_MAX_AGE_SECONDS`.
@@ -14,7 +16,7 @@ The PIMS API now includes a local entitlement projection and an optional SQS acc
 1. Apply `database/pims/002_entitlement_projection.sql` after PIMS migration 001 using the controlled migration runner.
 2. Deploy the Platform producer change so PIMS access events include `oidcIssuer` and `oidcSubject`. Configure the Platform outbox publisher to use an approved SQS queue.
 3. Configure the PIMS workload identity with `sqs:ReceiveMessage`, `sqs:DeleteMessage`, and `sqs:GetQueueAttributes` only on the approved access-events queue. Configure a dead-letter queue, redrive policy and alarms for age, depth and DLQ count.
-4. Run Platform migration `database/platform/004_pims_entitlement_snapshot_outbox.sql` once to enqueue a snapshot of current PIMS entitlements for active users/memberships/tenants. The regular outbox publisher delivers these events. Do not mark the PIMS projection healthy before the snapshot has been delivered and reconciled.
+4. Run Platform migrations `database/platform/004_pims_entitlement_snapshot_outbox.sql` and `database/platform/005_tenant_membership_projection_outbox.sql` once to enqueue snapshots of current PIMS entitlements and tenant membership states. The regular outbox publisher delivers these events. Do not mark the PIMS projection healthy before the snapshot has been delivered and reconciled.
 5. Start the PIMS event consumer with `PIMS_ACCESS_EVENTS_CONSUMER_ENABLED=true`, `PIMS_ACCESS_EVENTS_QUEUE_URL`, and `AWS_REGION`. Keep it disabled until migration 002 is applied and the queue/IAM/DLQ configuration is verified.
 6. Reconcile projected grant/revoke counts and sample identities against Platform's authoritative entitlement report. Then, as a controlled operational action, mark the consumer state healthy and set its heartbeat timestamp to the current time:
    ```sql
@@ -46,6 +48,7 @@ Use a real PostgreSQL instance with the PIMS schema and a non-production OIDC is
 | Valid PIMS entitlement and `pims:read` permission | Read succeeds for the active tenant only |
 | Valid identity without PIMS entitlement | 403; no data returned |
 | PIMS entitlement revoked after token issuance | Denied within the documented revocation SLA, without waiting for token expiry |
+| Tenant membership suspended or removed after token issuance | Denied while the project entitlement remains granted |
 | Tenant A token requests tenant B resource | 404/403 with zero rows disclosed |
 | Tenant A request supplies tenant B ID in query/body/header | Server ignores caller scope and remains tenant A-scoped |
 | Event delivered twice | Same projection result; no duplicate side effects |
@@ -63,6 +66,6 @@ Use a real PostgreSQL instance with the PIMS schema and a non-production OIDC is
 - [ ] Run a real-issuer JWT verification suite in non-production CI.
 - [ ] Test queue retries, DLQ redrive, duplicate/out-of-order delivery and consumer restart.
 - [ ] Measure actual revoke-to-deny latency and approve the revocation SLA.
-- [ ] Confirm tenant membership suspension/removal events are projected if tenant membership revocation must independently revoke access.
+- [ ] Verify membership activation/suspension/removal projection and version ordering in the non-production OIDC/SQS environment.
 - [ ] Complete PIMS frontend OIDC session and protected API integration.
 - [ ] Do not enable production access until all gates pass.
